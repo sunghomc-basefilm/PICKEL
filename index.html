@@ -1,0 +1,1582 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a6ef5">
+<title>인테리어 필름 재단 최적화</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f4f6fa;
+    --card:#ffffff;
+    --ink:#141d27;
+    --ink2:#52616f;
+    --line:#dde3ea;
+    --line2:#eef2f6;
+    --accent:#1a6ef5;
+    --accent-soft:#e8f0ff;
+    --accent-ink:#ffffff;
+    --waste:#e8edf3;
+    --waste-line:#c9d4e0;
+    --ok:#0b7a45;
+    --warn:#9a5b06;
+    --warn-bg:#fff6e4;
+    --warn-line:#f2d49b;
+    --danger:#b3261e;
+    --shadow:0 1px 2px rgba(18,32,50,.06), 0 8px 22px rgba(18,32,50,.07);
+    --r:16px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1218;
+      --card:#161d26;
+      --ink:#e9eff6;
+      --ink2:#a4b4c4;
+      --line:#28323e;
+      --line2:#1d2531;
+      --accent:#5a97ff;
+      --accent-soft:#1b2b45;
+      --accent-ink:#08121f;
+      --waste:#1c2632;
+      --waste-line:#2e3c4b;
+      --ok:#4ad28e;
+      --warn:#f0b357;
+      --warn-bg:#241d10;
+      --warn-line:#4a3a1c;
+      --danger:#ff8a80;
+      --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 26px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+    font-size:16px;
+    line-height:1.5;
+    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:16px 14px 96px}
+
+  /* ---------- header ---------- */
+  .top{display:flex;align-items:center;gap:12px;margin:6px 4px 16px}
+  .logo{
+    width:44px;height:44px;flex:0 0 44px;border-radius:13px;
+    background:linear-gradient(150deg,var(--accent),#7b47f5);
+    color:#fff;display:grid;place-items:center;font-size:22px;
+    box-shadow:0 6px 16px rgba(26,110,245,.28);
+  }
+  .top h1{font-size:19px;margin:0;letter-spacing:-.02em}
+  .top .sub{margin:2px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.4}
+
+  /* ---------- layout ---------- */
+  .layout{display:grid;gap:14px}
+  @media (min-width:1020px){
+    .layout{grid-template-columns:408px minmax(0,1fr);gap:18px;align-items:start}
+  }
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow);padding:16px;margin-bottom:14px;
+  }
+  .card:last-child{margin-bottom:0}
+  .card-h{font-size:15px;margin:0 0 10px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .card-h .tag{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:3px 8px;border-radius:99px}
+
+  .step-head{display:flex;gap:11px;align-items:flex-start;margin-bottom:13px}
+  .step-head .num{
+    width:26px;height:26px;flex:0 0 26px;border-radius:9px;background:var(--accent);color:var(--accent-ink);
+    display:grid;place-items:center;font-size:13px;font-weight:700;margin-top:1px;
+  }
+  .step-head h2{font-size:15.5px;margin:0;letter-spacing:-.01em}
+  .step-head p{margin:2px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.45}
+
+  /* ---------- mode cards ---------- */
+  .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mode-card{
+    position:relative;display:block;border:2px solid var(--line);border-radius:14px;
+    padding:12px 10px 11px;cursor:pointer;background:var(--card);
+    transition:border-color .15s, background .15s, transform .1s;
+    -webkit-user-select:none;user-select:none;min-height:106px;
+  }
+  .mode-card:active{transform:scale(.985)}
+  .mode-card input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+  .mode-card .mi{display:block;height:34px;margin-bottom:6px}
+  .mode-card .mt{display:block;font-size:13.5px;font-weight:700;letter-spacing:-.01em;line-height:1.3}
+  .mode-card .md{display:block;font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.35}
+  .mode-card.on{border-color:var(--accent);background:var(--accent-soft)}
+  .mode-card.on .mt{color:var(--accent)}
+  .mode-card.on .mi{color:var(--accent)}
+  .mode-card.on:after{
+    content:"";position:absolute;top:9px;right:9px;width:18px;height:18px;border-radius:50%;
+    background:var(--accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'><path d='M5 13l4 4L19 7'/></svg>") center/12px no-repeat;
+  }
+  .mode-card:focus-within{outline:3px solid color-mix(in srgb, var(--accent) 45%, transparent);outline-offset:2px}
+
+  .rule-note{
+    margin-top:11px;font-size:12.5px;line-height:1.55;color:var(--ink2);
+    background:var(--line2);border-radius:11px;padding:10px 12px;
+  }
+  .rule-note b{color:var(--ink)}
+  .rule-note .ex{display:inline-block;margin-top:5px;font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+
+  /* ---------- fields ---------- */
+  .field-row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  .field{display:block;min-width:0}
+  .field .lab{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px}
+  .field .ipt-wrap{position:relative;display:flex;align-items:center}
+  input,button,select,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
+  .inp{
+    width:100%;min-width:0;height:46px;padding:0 42px 0 12px;border-radius:11px;
+    border:1.5px solid var(--line);background:var(--card);font-variant-numeric:tabular-nums;
+    font-size:17px;font-weight:600;
+  }
+  .inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
+  .inp::placeholder{font-weight:400;color:var(--ink2);opacity:.75}
+  .field .unit{position:absolute;right:11px;font-size:12px;color:var(--ink2);pointer-events:none}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .chip{
+    border:1.5px solid var(--line);background:var(--card);color:var(--ink2);
+    border-radius:99px;padding:0 13px;height:34px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .chip:active{transform:scale(.97)}
+  .hint{font-size:11.5px;color:var(--ink2);margin:8px 0 0;line-height:1.5}
+
+  /* ---------- piece rows ---------- */
+  .rows{display:flex;flex-direction:column;gap:9px}
+  .prow{
+    display:grid;gap:7px;align-items:end;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 40px;
+    grid-template-areas:
+      "name name name del"
+      "w    h    qty qty";
+    border:1.5px solid var(--line);border-radius:12px;padding:9px 10px 10px;background:var(--card);
+  }
+  .prow .c-name{grid-area:name}
+  .prow .c-w{grid-area:w}
+  .prow .c-h{grid-area:h}
+  .prow .c-qty{grid-area:qty}
+  .prow .c-del{grid-area:del;display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:1px}
+  @media (min-width:640px){
+    .prow{
+      grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr) 40px;
+      grid-template-areas:"name w h qty del";
+      padding:9px 10px;gap:8px;
+    }
+  }
+  .prow .mini{display:block;font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:4px}
+  .prow .inp{height:42px;font-size:16px;padding:0 8px;text-align:left}
+  .prow .c-w .inp,.prow .c-h .inp,.prow .c-qty .inp{text-align:right;padding-right:9px;font-variant-numeric:tabular-nums}
+  .prow .inp[data-f="label"]{font-weight:500}
+  .del-btn{
+    width:40px;height:40px;border-radius:11px;border:1.5px solid var(--line);background:var(--card);
+    color:var(--ink2);font-size:17px;cursor:pointer;display:grid;place-items:center;
+  }
+  .del-btn:active{background:var(--line2)}
+
+  .row-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+  .btn{
+    height:46px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);
+    color:var(--ink);font-weight:700;font-size:14.5px;padding:0 16px;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 5px 14px rgba(26,110,245,.24)}
+  .btn.ghost{color:var(--ink2);font-weight:600}
+  .btn.sm{height:38px;font-size:13px;padding:0 12px;border-radius:10px}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  /* ---------- result ---------- */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  @media (min-width:520px){.tiles{grid-template-columns:repeat(4,1fr)}}
+  .tile{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;
+    box-shadow:var(--shadow);
+  }
+  .tile .k{font-size:11.5px;font-weight:600;color:var(--ink2);white-space:nowrap}
+  .tile .v{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:3px;font-variant-numeric:tabular-nums}
+  .tile .v small{font-size:12.5px;font-weight:700;margin-left:2px;color:var(--ink2)}
+  .tile .d{font-size:11px;color:var(--ink2);margin-top:2px;line-height:1.4}
+  .tile.hi .v{color:var(--accent)}
+
+  .warns{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .warn{
+    display:flex;gap:9px;font-size:12.5px;line-height:1.5;border-radius:12px;padding:10px 12px;
+    background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);
+  }
+  .warn .ic{flex:0 0 auto;font-size:14px;line-height:1.35}
+  .warn b{display:block;color:inherit;font-size:13px;margin-bottom:1px}
+  .warn .muted{color:inherit;opacity:.8}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px}
+  .lg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2);
+      border:1px solid var(--line);border-radius:99px;padding:4px 9px 4px 6px;background:var(--card)}
+  .lg i{width:11px;height:11px;border-radius:3px;display:inline-block;outline:1px solid rgba(0,0,0,.12)}
+
+  .roll-block{margin-top:14px}
+  .roll-block:first-of-type{margin-top:4px}
+  .roll-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .roll-head .t{font-size:13.5px;font-weight:800}
+  .roll-head .s{font-size:11.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+
+  /* 구간은 페이지 스크롤로 전부 보이게 (카드 안 별도 스크롤은 도면이 잘려 보여 위험) */
+  .seg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;padding:2px}
+  .seg{min-width:0}
+  /* 긴 구간(조각을 자를 수 없어 길게 이어지는 구간)은 카드 폭 전체를 써서 길이 축만 축소해 보여 줌 */
+  .seg.long{grid-column:1/-1}
+  .seg-cap{font-size:10.5px;font-weight:600;color:var(--ink2);margin:0 0 3px 1px;font-variant-numeric:tabular-nums;
+           display:flex;justify-content:space-between;gap:4px;flex-wrap:wrap}
+  .seg-cap .zoom{color:var(--accent);font-weight:700}
+  .seg-fig{display:flex;align-items:stretch;gap:3px}
+  .seg-ticks{position:relative;flex:0 0 38px;font-size:9.5px;font-weight:600;color:var(--ink2);
+             font-variant-numeric:tabular-nums}
+  .seg-ticks span{position:absolute;right:1px;transform:translateY(-50%);white-space:nowrap;opacity:.85}
+  .seg-plot{position:relative;flex:1 1 auto;min-width:0;border:1px solid var(--line);border-radius:7px;overflow:hidden;
+            background:repeating-linear-gradient(135deg,var(--waste) 0 7px,var(--waste-line) 7px 10px)}
+  .seg.long .seg-plot{border-color:color-mix(in srgb, var(--accent) 42%, var(--line))}
+  .seg-svg{display:block;width:100%;height:auto}
+  .seg.long .seg-svg{height:100%}
+  .seg-ov{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .seg-lab{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;
+           overflow:hidden;text-align:center;line-height:1.16;color:var(--ink)}
+  .seg-lab b,.seg-lab i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+           font-style:normal;font-weight:700;font-size:10px}
+  .seg-lab i{font-weight:600;opacity:.95}
+  .seg-no{position:absolute;padding:2px 0 0 2px;font-size:9.5px;font-weight:800;line-height:1}
+  .seg-ar{position:absolute;width:0;border-left:1px dashed var(--ink);opacity:.32}
+  .seg-ar:before,.seg-ar:after{content:"";position:absolute;left:-3.5px;width:0;height:0;
+           border-left:3.5px solid transparent;border-right:3.5px solid transparent}
+  .seg-ar:before{top:0;border-bottom:6px solid var(--ink)}
+  .seg-ar:after{bottom:0;border-top:6px solid var(--ink)}
+  .seg-mark{position:absolute;font-size:9px;font-weight:700;color:var(--ink2);
+            background:color-mix(in srgb,var(--card) 82%,transparent);padding:1px 4px;border-radius:4px}
+  .axis-note{font-size:11px;color:var(--ink2);margin:9px 0 0;display:flex;flex-wrap:wrap;gap:4px 12px}
+
+  .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px}
+  table.guide{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px}
+  table.guide th{
+    text-align:left;font-size:11px;font-weight:700;color:var(--ink2);padding:7px 8px;
+    border-bottom:1.5px solid var(--line);white-space:nowrap;background:var(--card);
+  }
+  table.guide td{padding:8px;border-bottom:1px solid var(--line2);vertical-align:top}
+  table.guide tr:last-child td{border-bottom:none}
+  table.guide .num{color:var(--ink2);font-variant-numeric:tabular-nums;width:28px}
+  table.guide .roll{white-space:nowrap;color:var(--ink2);font-size:11.5px}
+  table.guide .mono{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+  table.guide .note{color:var(--ink2);font-size:11.5px;white-space:nowrap}
+  table.guide .muted{color:var(--ink2);opacity:.6}
+
+  .empty{
+    text-align:center;padding:34px 18px;color:var(--ink2);
+  }
+  .empty .big{font-size:34px;margin-bottom:8px}
+  .empty p{margin:4px 0;font-size:13px}
+  .sum-line{font-size:11.5px;color:var(--ink2);margin-top:10px;line-height:1.6}
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:50;
+    background:#111a24;color:#fff;font-size:13px;font-weight:600;padding:11px 18px;border-radius:99px;
+    box-shadow:0 8px 24px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;
+  }
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  .foot{margin:18px 2px 0;font-size:11px;color:var(--ink2);line-height:1.6}
+
+  .quickbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;align-items:center;justify-content:space-between;
+    gap:10px;padding:9px 14px calc(9px + env(safe-area-inset-bottom));background:var(--card);
+    border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(16,32,54,.12);
+  }
+  .quickbar.on{display:flex}
+  .quickbar .qb-info{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+  .quickbar .qb-info b{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .quickbar .qb-info span{font-size:11.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+  @media (min-width:1020px){ .quickbar{display:none !important} }
+
+  @media print{
+    :root{--bg:#fff;--card:#fff;--shadow:none}
+    body{background:#fff}
+    .col-input,.row-actions,.no-print{display:none !important}
+    .layout{display:block}
+    .seg-grid{max-height:none;overflow:visible;grid-template-columns:repeat(2,1fr)}
+    .card{break-inside:avoid;box-shadow:none}
+    .wrap{padding:0}
+  }
+</style>
+<meta name="application-name" content="필름 재단">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="필름 재단">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo" aria-hidden="true">✂</div>
+    <div>
+      <h1>인테리어 필름 재단 최적화</h1>
+      <p class="sub">세로결 무늬는 결 방향을 지키고, 단색·엠보싱은 회전까지 계산해 원단을 가장 짧게 씁니다.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ================= LEFT : INPUT ================= -->
+    <form class="col-input" id="inpForm" autocomplete="off" onsubmit="return false">
+
+      <section class="card">
+        <div class="step-head">
+          <span class="num">1</span>
+          <div>
+            <h2>필름 종류 확인</h2>
+            <p>무늬(결) 방향이 있는 필름인지 먼저 선택하세요.</p>
+          </div>
+        </div>
+        <div class="mode-grid" id="modeGrid">
+          <label class="mode-card" data-mode="grain">
+            <input type="radio" name="mode" value="grain">
+            <svg class="mi" viewBox="0 0 60 34" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="58" height="32" rx="4" stroke="currentColor" stroke-opacity=".35"/>
+              <path d="M10 1v32M20 1v32M30 1v32M40 1v32M50 1v32" stroke="currentColor" stroke-opacity=".55" stroke-width="1.6"/>
+              <path d="M30 6v22M27 9l3-3 3 3M27 25l3 3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="mt">세로결 무늬</span>
+            <span class="md">나뭇결·패턴 — 결 방향 고정</span>
+          </label>
+          <label class="mode-card" data-mode="plain">
+            <input type="radio" name="mode" value="plain">
+            <svg class="mi" viewBox="0 0 60 34" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="58" height="32" rx="4" stroke="currentColor" stroke-opacity=".35"/>
+              <g fill="currentColor" fill-opacity=".45">
+                <circle cx="11" cy="9" r="1.6"/><circle cx="23" cy="9" r="1.6"/><circle cx="35" cy="9" r="1.6"/><circle cx="47" cy="9" r="1.6"/>
+                <circle cx="17" cy="17" r="1.6"/><circle cx="29" cy="17" r="1.6"/><circle cx="41" cy="17" r="1.6"/><circle cx="53" cy="17" r="1.6"/>
+                <circle cx="11" cy="25" r="1.6"/><circle cx="23" cy="25" r="1.6"/><circle cx="35" cy="25" r="1.6"/><circle cx="47" cy="25" r="1.6"/>
+              </g>
+            </svg>
+            <span class="mt">단색 · 엠보싱</span>
+            <span class="md">무지 — 90° 회전 가능</span>
+          </label>
+        </div>
+        <div class="rule-note" id="ruleNote"></div>
+      </section>
+
+      <section class="card">
+        <div class="step-head">
+          <span class="num">2</span>
+          <div>
+            <h2>원단 규격 · 여유분</h2>
+            <p>기본값은 국내 표준 1,220mm × 50m입니다.</p>
+          </div>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="lab">원단 폭</span>
+            <span class="ipt-wrap">
+              <input class="inp" id="rollWidth" type="text" inputmode="numeric" value="1220" aria-label="원단 폭 (mm)">
+              <span class="unit">mm</span>
+            </span>
+          </label>
+          <label class="field">
+            <span class="lab">원단 길이</span>
+            <span class="ipt-wrap">
+              <input class="inp" id="rollLength" type="text" inputmode="decimal" value="50" aria-label="원단 길이 (m)">
+              <span class="unit">m</span>
+            </span>
+          </label>
+        </div>
+
+        <label class="field" style="margin-top:11px">
+          <span class="lab">재단 여유분 (조각마다 가로·세로에 각각 더함)</span>
+          <span class="ipt-wrap">
+            <input class="inp" id="margin" type="text" inputmode="numeric" value="0" aria-label="여유분 (mm)">
+            <span class="unit">mm</span>
+          </span>
+        </label>
+        <div class="chips" id="marginChips">
+          <button type="button" class="chip on" data-m="0">0</button>
+          <button type="button" class="chip" data-m="5">5mm</button>
+          <button type="button" class="chip" data-m="10">10mm</button>
+          <button type="button" class="chip" data-m="20">20mm</button>
+        </div>
+        <p class="hint">여유분은 배치 계산에만 쓰입니다. 재단 치수는 입력한 값 그대로입니다.</p>
+      </section>
+
+      <section class="card">
+        <div class="step-head">
+          <span class="num">3</span>
+          <div>
+            <h2>재단 치수 입력</h2>
+            <p>가로 × 세로(mm)와 수량을 넣어 주세요. 이름은 비워도 됩니다.</p>
+          </div>
+        </div>
+        <div class="rows" id="rows"></div>
+        <div class="row-actions">
+          <button type="button" class="btn primary" id="addRow">+ 조각 추가</button>
+          <button type="button" class="btn" id="exampleBtn">예시 데이터 넣기</button>
+          <button type="button" class="btn ghost" id="resetBtn">전체 초기화</button>
+        </div>
+        <p class="hint">치수는 실제 재단 사이즈(가로 × 세로)로 입력하세요. 필름 결은 길이(50m) 방향으로 흐릅니다.</p>
+      </section>
+    </form>
+
+    <!-- ================= RIGHT : RESULT ================= -->
+    <div class="col-result" id="result" aria-live="polite"></div>
+  </div>
+
+  <p class="foot">계산은 브라우저 안에서만 이루어지며 어디에도 전송되지 않습니다. 입력값은 이 기기에만 저장됩니다.</p>
+</div>
+
+<div class="quickbar" id="quickbar">
+  <div class="qb-info"><b id="qbLen">—</b><span id="qbSub">결과를 계산하는 중</span></div>
+  <button type="button" class="btn primary sm" id="qbJump">결과 보기</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   FILM-CORE  : 순수 계산 로직 (화면과 무관, 오프라인 동작)
+   ============================================================ */
+/* ===== FILM-CORE START ===== */
+var FilmCore = (function () {
+  'use strict';
+
+  var EPS = 1e-6;
+  var ALGOS = ['maxrects-bssf', 'maxrects-baf', 'maxrects-bl', 'skyline'];
+
+  function num(v, d) {
+    var n = parseFloat(v);
+    return isFinite(n) ? n : d;
+  }
+
+  /* ---------- 1. 입력 → 조각(piece) 목록 ---------- */
+  function expandPieces(items, opts) {
+    opts = opts || {};
+    var margin = Math.max(0, num(opts.margin, 0));
+    var pieces = [];
+    var invalid = [];
+    var order = 0;
+
+    (items || []).forEach(function (it, i) {
+      var label = String((it && it.label) || '').replace(/\s+/g, ' ').trim();
+      var w = num(it && it.w, 0);
+      var h = num(it && it.h, 0);
+      var qty = Math.floor(num(it && it.qty, 1));
+
+      if (!(w > 0) || !(h > 0)) { invalid.push({ index: i, label: label, reason: 'dim' }); return; }
+      if (!(qty > 0)) { invalid.push({ index: i, label: label, reason: 'qty' }); return; }
+
+      for (var q = 0; q < qty; q++) {
+        var pw = w + margin;
+        var ph = h + margin;
+        pieces.push({
+          key: 'p' + order,
+          order: order++,
+          itemIndex: i,
+          label: label,
+          seq: q + 1,
+          w: w, h: h,                       // 실제 재단 치수
+          pw: pw, ph: ph,                   // 여유분 포함 배치 치수
+          across: Math.min(pw, ph),         // 짧은 변 (원단 폭 방향 후보)
+          along: Math.max(pw, ph),          // 긴 변  (원단 길이 방향)
+          area: pw * ph
+        });
+      }
+    });
+
+    return { pieces: pieces, invalid: invalid };
+  }
+
+  /* ---------- 2. 정렬 규칙 ---------- */
+  function sortPieces(list, key) {
+    var arr = list.slice();
+    var cmp;
+    if (key === 'area') {
+      cmp = function (a, b) { return (b.area - a.area) || (b.along - a.along); };
+    } else if (key === 'maxSide') {
+      cmp = function (a, b) { return (b.along - a.along) || (b.across - a.across); };
+    } else if (key === 'across') {
+      cmp = function (a, b) { return (b.across - a.across) || (b.along - a.along); };
+    } else if (key === 'perimeter') {
+      cmp = function (a, b) { return ((b.pw + b.ph) - (a.pw + a.ph)) || (b.area - a.area); };
+    } else if (key === 'group') {
+      cmp = function (a, b) {
+        return (a.itemIndex - b.itemIndex) || (b.area - a.area) || (a.order - b.order);
+      };
+    } else {
+      cmp = function (a, b) { return a.order - b.order; };
+    }
+    arr.sort(function (a, b) { return cmp(a, b) || (a.order - b.order); });
+    return arr;
+  }
+
+  /* ---------- 3. 놓을 수 있는 방향 ----------
+     grain : 긴 변이 반드시 원단 길이(50m) 방향. 회전 금지.
+     plain : 90° 회전 자유.
+     policy: auto(매번 점수로 선택) / flat(입력 방향) / rot(90°) /
+             shortAcross(짧은 변을 폭으로) / longAcross(긴 변을 폭으로) */
+  function orientationOptions(p, W, L, mode, policy) {
+    var out = [];
+    policy = policy || 'auto';
+
+    if (mode === 'grain') {
+      if (p.across <= W + EPS && p.along <= L + EPS) out.push({ w: p.across, h: p.along });
+      return out;
+    }
+
+    var cand = [];
+    if (p.pw <= W + EPS && p.ph <= L + EPS) cand.push({ w: p.pw, h: p.ph });
+    if (Math.abs(p.pw - p.ph) > EPS && p.ph <= W + EPS && p.pw <= L + EPS) cand.push({ w: p.ph, h: p.pw });
+    if (!cand.length) return out;
+
+    if (policy === 'flat') return [cand[0]];
+    if (policy === 'rot') return cand.length > 1 ? [cand[1]] : [cand[0]];
+    if (policy === 'shortAcross') {
+      cand.sort(function (a, b) { return a.w - b.w; });
+      return [cand[0]];
+    }
+    if (policy === 'longAcross') {
+      cand.sort(function (a, b) { return b.w - a.w; });
+      return [cand[0]];
+    }
+    return cand; // auto
+  }
+
+  /* ---------- 4. MaxRects ---------- */
+  function scoreRect(rule, fr, w, h) {
+    var lw = fr.w - w, lh = fr.h - h;
+    if (rule === 'maxrects-bssf') return Math.min(lw, lh) * 100000 + Math.max(lw, lh);
+    if (rule === 'maxrects-baf') return (fr.w * fr.h - w * h) * 1000 + fr.y;
+    if (rule === 'maxrects-bl') return fr.y * 100000 + fr.x;
+    return Math.min(lw, lh);
+  }
+
+  function splitFree(fr, u, out) {
+    var noOverlap = (u.x >= fr.x + fr.w - EPS) || (u.x + u.w <= fr.x + EPS) ||
+                    (u.y >= fr.y + fr.h - EPS) || (u.y + u.h <= fr.y + EPS);
+    if (noOverlap) { out.push(fr); return; }
+
+    var top = u.y - fr.y;
+    if (top > EPS) out.push({ x: fr.x, y: fr.y, w: fr.w, h: top });
+
+    var bottomStart = Math.min(fr.y + fr.h, u.y + u.h);
+    if (fr.y + fr.h - bottomStart > EPS) out.push({ x: fr.x, y: bottomStart, w: fr.w, h: fr.y + fr.h - bottomStart });
+
+    var ovTop = Math.max(fr.y, u.y);
+    var ovBot = Math.min(fr.y + fr.h, u.y + u.h);
+    if (ovBot - ovTop > EPS) {
+      var leftW = u.x - fr.x;
+      if (leftW > EPS) out.push({ x: fr.x, y: ovTop, w: leftW, h: ovBot - ovTop });
+      var rightX = Math.min(fr.x + fr.w, u.x + u.w);
+      if (fr.x + fr.w - rightX > EPS) out.push({ x: rightX, y: ovTop, w: fr.x + fr.w - rightX, h: ovBot - ovTop });
+    }
+  }
+
+  function contains(a, b) {
+    return a.x <= b.x + EPS && a.y <= b.y + EPS &&
+           a.x + a.w >= b.x + b.w - EPS && a.y + a.h >= b.y + b.h - EPS;
+  }
+
+  function prune(list) {
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (r.w <= EPS || r.h <= EPS) continue;
+      var dead = false;
+      for (var j = 0; j < list.length; j++) {
+        if (i === j) continue;
+        var o = list[j];
+        if (o.w <= EPS || o.h <= EPS) continue;
+        if (contains(o, r) && (!contains(r, o) || j < i)) { dead = true; break; }
+      }
+      if (!dead) out.push(r);
+    }
+    return out;
+  }
+
+  function packMaxRects(pieces, W, L, rule, sortKey, mode, policy) {
+    return packMaxRectsList(sortPieces(pieces, sortKey), W, L, rule, mode, policy);
+  }
+
+  function packMaxRectsList(list, W, L, rule, mode, policy) {
+    var free = [{ x: 0, y: 0, w: W, h: L }];
+    var placed = [];
+
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var opts = orientationOptions(p, W, L, mode, policy);
+      if (!opts.length) continue;
+
+      var best = null;
+      for (var f = 0; f < free.length; f++) {
+        var fr = free[f];
+        for (var o = 0; o < opts.length; o++) {
+          var oo = opts[o];
+          if (oo.w > fr.w + EPS || oo.h > fr.h + EPS) continue;
+          var sc = scoreRect(rule, fr, oo.w, oo.h);
+          if (!best || sc < best.score - EPS) best = { fi: f, w: oo.w, h: oo.h, score: sc };
+        }
+      }
+      if (!best) continue;
+
+      var base = free[best.fi];
+      var node = { x: base.x, y: base.y, w: best.w, h: best.h, piece: p };
+      placed.push(node);
+
+      var next = [];
+      for (var k = 0; k < free.length; k++) splitFree(free[k], node, next);
+      free = prune(next);
+    }
+    return finish(placed);
+  }
+
+  /* ---------- 5. Skyline (Bottom-Left) ---------- */
+  function packSkyline(pieces, W, L, sortKey, mode, policy) {
+    var placed = [];
+    var list = sortPieces(pieces, sortKey);
+    var xs = [];
+    var i, j, k;
+
+    for (i = 0; i < list.length; i++) {
+      var p = list[i];
+      var opts = orientationOptions(p, W, L, mode, policy);
+      if (!opts.length) continue;
+
+      xs = [0];
+      for (j = 0; j < placed.length; j++) { xs.push(placed[j].x + placed[j].w); }
+      xs.sort(function (a, b) { return a - b; });
+
+      var best = null;
+      for (var o = 0; o < opts.length; o++) {
+        var oo = opts[o];
+        var cands = xs.slice();
+        cands.push(0);
+        cands.push(W - oo.w);
+        var seen = {};
+        for (k = 0; k < cands.length; k++) {
+          var x = Math.round(cands[k] * 1000) / 1000;
+          if (x < -EPS || x + oo.w > W + EPS) continue;
+          if (seen[x]) continue;
+          seen[x] = 1;
+
+          var top = 0;
+          for (j = 0; j < placed.length; j++) {
+            var pl = placed[j];
+            if (pl.x < x + oo.w - EPS && pl.x + pl.w > x + EPS) {
+              var t = pl.y + pl.h;
+              if (t > top) top = t;
+            }
+          }
+          if (top + oo.h > L + EPS) continue;
+          if (!best || top < best.y - EPS || (Math.abs(top - best.y) <= EPS && x < best.x)) {
+            best = { x: x, y: top, w: oo.w, h: oo.h, piece: p };
+          }
+        }
+      }
+      if (best) placed.push(best);
+    }
+    return finish(placed);
+  }
+
+  /* ---------- 6. 한 롤 결과 마감 ---------- */
+  function finish(placed) {
+    var used = 0, area = 0;
+    for (var i = 0; i < placed.length; i++) {
+      var n = placed[i];
+      if (n.y + n.h > used) used = n.y + n.h;
+      area += n.w * n.h;
+    }
+    placed.sort(function (a, b) {
+      return (a.y - b.y) || (a.x - b.x) || (a.piece.order - b.piece.order);
+    });
+    for (var j = 0; j < placed.length; j++) {
+      var pl = placed[j];
+      pl.swapped = Math.abs(pl.w - pl.piece.ph) <= EPS && Math.abs(pl.piece.pw - pl.piece.ph) > EPS;
+    }
+    return { placements: placed, usedLength: used, area: area, count: placed.length };
+  }
+
+  function runStrategy(algo, sortKey, pieces, W, L, mode, policy) {
+    if (algo === 'skyline') return packSkyline(pieces, W, L, sortKey, mode, policy);
+    return packMaxRects(pieces, W, L, algo, sortKey, mode, policy);
+  }
+
+  /* ---------- 6b. 한 장씩 돌려 보며 길이 줄이기 (단색 모드) ---------- */
+  function repairRotations(roll, W, L) {
+    var ps = roll.placements;
+    if (!ps.length) return roll;
+    for (var pass = 0; pass < 3; pass++) {
+      var improved = false;
+      for (var i = 0; i < ps.length; i++) {
+        var a = ps[i];
+        if (Math.abs(a.w - a.h) < EPS) continue;
+        var nw = a.h, nh = a.w;
+        if (a.x + nw > W + EPS || a.y + nh > L + EPS) continue;
+
+        var clash = false;
+        for (var j = 0; j < ps.length; j++) {
+          if (i === j) continue;
+          var b = ps[j];
+          if (a.x < b.x + b.w - EPS && b.x < a.x + nw - EPS &&
+              a.y < b.y + b.h - EPS && b.y < a.y + nh - EPS) { clash = true; break; }
+        }
+        if (clash) continue;
+
+        var newUsed = 0;
+        for (var k = 0; k < ps.length; k++) {
+          var top = (k === i) ? (a.y + nh) : (ps[k].y + ps[k].h);
+          if (top > newUsed) newUsed = top;
+        }
+        if (newUsed < roll.usedLength - EPS) {
+          a.w = nw; a.h = nh; a.swapped = !a.swapped;
+          roll.usedLength = newUsed;
+          improved = true;
+        }
+      }
+      if (!improved) break;
+    }
+    var area = 0;
+    for (var m = 0; m < ps.length; m++) area += ps[m].w * ps[m].h;
+    roll.area = area;
+    ps.sort(function (a2, b2) { return (a2.y - b2.y) || (a2.x - b2.x); });
+    return roll;
+  }
+
+  function betterRoll(a, b) {
+    if (!b) return true;
+    if (a.count !== b.count) return a.count > b.count;
+    if (Math.abs(a.usedLength - b.usedLength) > 1) return a.usedLength < b.usedLength;
+    return a.area > b.area + EPS;
+  }
+
+  /* ---------- 7. 여러 롤에 나누어 담기 ---------- */
+  function packAll(pieces, W, L, mode) {
+    var remaining = pieces.slice();
+    var rolls = [];
+    var guard = 0;
+    var n = pieces.length;
+    var sorts = n > 90
+      ? ['area', 'maxSide', 'group']
+      : ['area', 'maxSide', 'across', 'perimeter', 'group', 'input'];
+    var policies = (mode === 'grain') ? ['auto'] : ['auto', 'shortAcross', 'longAcross'];
+
+    while (remaining.length > 0 && guard++ < 500) {
+      var best = null;
+      for (var a = 0; a < ALGOS.length; a++) {
+        for (var s = 0; s < sorts.length; s++) {
+          for (var q = 0; q < policies.length; q++) {
+            var r = runStrategy(ALGOS[a], sorts[s], remaining, W, L, mode, policies[q]);
+            if (betterRoll(r, best)) best = r;
+          }
+        }
+      }
+      if (!best || best.placements.length === 0) break;
+      if (mode === 'plain') repairRotations(best, W, L);
+
+      var usedKeys = {};
+      for (var i = 0; i < best.placements.length; i++) usedKeys[best.placements[i].piece.key] = 1;
+      rolls.push({ index: rolls.length + 1, placements: best.placements, usedLength: best.usedLength });
+      remaining = remaining.filter(function (p) { return !usedKeys[p.key]; });
+    }
+    return { rolls: rolls, unplaced: remaining };
+  }
+
+  /* ---------- 8. 전체 실행 ---------- */
+  function optimize(input) {
+    input = input || {};
+    var mode = input.mode === 'grain' ? 'grain' : 'plain';
+    var W = Math.max(1, num(input.rollWidth, 1220));
+    var L = Math.max(1, num(input.rollLengthMm, 50000));
+    var margin = Math.max(0, num(input.margin, 0));
+
+    var ex = expandPieces(input.items, { margin: margin });
+    var fit = [], tooWide = [], tooLong = [];
+
+    for (var i = 0; i < ex.pieces.length; i++) {
+      var p = ex.pieces[i];
+      var fits = (mode === 'grain')
+        ? (p.across <= W + EPS && p.along <= L + EPS)
+        : ((p.pw <= W + EPS && p.ph <= L + EPS) || (p.ph <= W + EPS && p.pw <= L + EPS));
+      if (fits) fit.push(p);
+      else if (p.across > W + EPS) tooWide.push(p);
+      else tooLong.push(p);
+    }
+
+    var packed = packAll(fit, W, L, mode);
+    var rolls = packed.rolls;
+    var totalUsed = 0, totalArea = 0, count = 0;
+
+    for (var r = 0; r < rolls.length; r++) {
+      var roll = rolls[r];
+      roll.area = 0;
+      roll.count = roll.placements.length;
+      for (var k = 0; k < roll.placements.length; k++) roll.area += roll.placements[k].w * roll.placements[k].h;
+      roll.wastePct = roll.usedLength > 0 ? (W * roll.usedLength - roll.area) / (W * roll.usedLength) : 0;
+      totalUsed += roll.usedLength;
+      totalArea += roll.area;
+      count += roll.count;
+    }
+
+    var wasteArea = W * totalUsed - totalArea;
+    return {
+      mode: mode,
+      rollWidth: W,
+      rollLength: L,
+      margin: margin,
+      rolls: rolls,
+      rollsNeeded: rolls.length,
+      lastRollUsed: rolls.length ? rolls[rolls.length - 1].usedLength : 0,
+      totalUsedLength: totalUsed,
+      totalArea: totalArea,
+      wasteArea: wasteArea,
+      wastePct: totalUsed > 0 ? wasteArea / (W * totalUsed) : 0,
+      pieceCount: count,
+      tooWide: tooWide,
+      tooLong: tooLong,
+      invalid: ex.invalid,
+      unplaced: packed.unplaced
+    };
+  }
+
+  return {
+    expandPieces: expandPieces,
+    packAll: packAll,
+    optimize: optimize,
+    orientationOptions: orientationOptions,
+    sortPieces: sortPieces,
+    packMaxRects: packMaxRects,
+    packSkyline: packSkyline
+  };
+})();
+/* ===== FILM-CORE END ===== */
+if (typeof window !== 'undefined') window.FilmCore = FilmCore;
+
+
+/* ============================================================
+   UI
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var STORE = 'film-cutter-state-v1';
+  var PALETTE = ['#2563eb', '#0f8a4a', '#d97706', '#dc2626', '#7c3aed', '#0891b2',
+                 '#be185d', '#4d7c0f', '#c2410c', '#4338ca', '#0f766e', '#a16207'];
+
+  var state = {
+    mode: null,
+    rollWidth: '1220',
+    rollLength: '50',
+    margin: '0',
+    items: []
+  };
+  var lastResult = null;
+  var uid = 1;
+
+  var $ = function (s) { return document.querySelector(s); };
+  var rowsEl = $('#rows');
+  var resultEl = $('#result');
+  var toastEl = $('#toast');
+  var modeGrid = $('#modeGrid');
+  var ruleNote = $('#ruleNote');
+  var quickbar = $('#quickbar');
+  var qbLen = $('#qbLen');
+  var qbSub = $('#qbSub');
+
+  /* ---------- utils ---------- */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmt(n) {
+    var v = Math.round((parseFloat(n) || 0) * 100) / 100;
+    return v.toLocaleString('ko-KR');
+  }
+  function m2(mm2) { return (mm2 / 1000000).toFixed(2); }
+  function meters(mm) { return (mm / 1000).toFixed(2); }
+  function intOr(v, d) {
+    var s = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+    if (s === '') return d;
+    var n = parseInt(s, 10);
+    return isFinite(n) ? n : d;
+  }
+  function decimals(v) {
+    var s = String(v == null ? '' : v).replace(/[^0-9.]/g, '');
+    var i = s.indexOf('.');
+    if (i >= 0) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, '');
+    return s;
+  }
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(function () { toastEl.classList.remove('on'); }, 1900);
+  }
+  function itemColor(i) { return PALETTE[i % PALETTE.length]; }
+
+  /* ---------- state persistence ---------- */
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (!s || typeof s !== 'object') return;
+      if (s.mode === 'grain' || s.mode === 'plain') state.mode = s.mode;
+      if (typeof s.rollWidth === 'string') state.rollWidth = s.rollWidth;
+      if (typeof s.rollLength === 'string') state.rollLength = s.rollLength;
+      if (typeof s.margin === 'string') state.margin = s.margin;
+      if (Array.isArray(s.items)) {
+        state.items = s.items.slice(0, 200).map(function (it) {
+          return {
+            id: uid++,
+            label: String((it && it.label) || ''),
+            w: String((it && it.w) || ''),
+            h: String((it && it.h) || ''),
+            qty: String((it && it.qty) || '')
+          };
+        });
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- step 1 : film type ---------- */
+  function renderMode() {
+    var cards = modeGrid.querySelectorAll('.mode-card');
+    for (var i = 0; i < cards.length; i++) {
+      var on = cards[i].getAttribute('data-mode') === state.mode;
+      cards[i].classList.toggle('on', on);
+      cards[i].querySelector('input').checked = on;
+    }
+    if (state.mode === 'grain') {
+      ruleNote.innerHTML =
+        '<b>세로결 규칙 적용 중</b> — 무늬가 50m 길이 방향으로 흐르므로, 모든 조각의 <b>긴 변을 길이(50m) 방향</b>에 놓습니다. ' +
+        '가로가 더 긴 직사각형도 폭 방향으로 눕히지 않습니다.' +
+        '<span class="ex">예: 가로 1000 × 세로 400 → 폭 400 × 길이 1000 배치</span>';
+    } else if (state.mode === 'plain') {
+      ruleNote.innerHTML =
+        '<b>단색·엠보싱 규칙 적용 중</b> — 결이 없으므로 조각을 90° 회전해도 됩니다. ' +
+        '회전까지 비교해 원단 길이를 가장 짧게 쓰는 배치를 고릅니다.';
+    } else {
+      ruleNote.innerHTML =
+        '<b>필름 종류를 먼저 선택하세요.</b> 세로결 무늬는 배치 규칙이 완전히 달라집니다.';
+    }
+  }
+  modeGrid.addEventListener('change', function (e) {
+    if (e.target && e.target.name === 'mode') {
+      state.mode = e.target.value;
+      renderMode(); save(); run();
+    }
+  });
+  modeGrid.addEventListener('click', function (e) {
+    var card = e.target.closest('.mode-card');
+    if (card) {
+      state.mode = card.getAttribute('data-mode');
+      renderMode(); save(); run();
+    }
+  });
+
+  /* ---------- step 2 : roll spec ---------- */
+  function bindNum(el, key, isDecimal) {
+    el.addEventListener('input', function () {
+      var clean = isDecimal ? decimals(el.value) : String(el.value).replace(/[^0-9]/g, '');
+      if (el.value !== clean) el.value = clean;
+      state[key] = el.value;
+      save();
+      if (key === 'margin') renderMarginChips();
+      scheduleRun();
+    });
+  }
+  function renderMarginChips() {
+    var chips = $('#marginChips').querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('on', String(intOr(state.margin, 0)) === chips[i].getAttribute('data-m'));
+    }
+  }
+  $('#marginChips').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip');
+    if (!b) return;
+    state.margin = b.getAttribute('data-m');
+    $('#margin').value = state.margin;
+    renderMarginChips(); save(); run();
+  });
+
+  /* ---------- step 3 : pieces ---------- */
+  function rowHTML(it) {
+    return '<div class="prow" data-id="' + it.id + '">' +
+      '<div class="c-name"><span class="mini">이름 (선택)</span>' +
+        '<input class="inp" data-f="label" type="text" maxlength="20" placeholder="예: 싱크대 문짝" value="' + esc(it.label) + '"></div>' +
+      '<div class="c-w"><span class="mini">가로 mm</span>' +
+        '<input class="inp" data-f="w" type="text" inputmode="numeric" placeholder="0" value="' + esc(it.w) + '"></div>' +
+      '<div class="c-h"><span class="mini">세로 mm</span>' +
+        '<input class="inp" data-f="h" type="text" inputmode="numeric" placeholder="0" value="' + esc(it.h) + '"></div>' +
+      '<div class="c-qty"><span class="mini">수량</span>' +
+        '<input class="inp" data-f="qty" type="text" inputmode="numeric" placeholder="1" value="' + esc(it.qty) + '"></div>' +
+      '<div class="c-del"><button type="button" class="del-btn" data-act="del" aria-label="이 줄 삭제">✕</button></div>' +
+    '</div>';
+  }
+  function renderRows() {
+    rowsEl.innerHTML = state.items.map(rowHTML).join('');
+    if (!state.items.length) {
+      rowsEl.innerHTML = '<div class="prow" style="grid-template-areas:\'name\';grid-template-columns:1fr;border-style:dashed;color:var(--ink2);font-size:13px;display:block;text-align:center;padding:20px">' +
+        '아직 조각이 없습니다. <b>+ 조각 추가</b> 또는 <b>예시 데이터 넣기</b>를 눌러 주세요.</div>';
+    }
+  }
+  rowsEl.addEventListener('input', function (e) {
+    var inp = e.target;
+    if (!inp.classList || !inp.classList.contains('inp')) return;
+    var row = inp.closest('.prow');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var f = inp.getAttribute('data-f');
+    var it = null;
+    for (var i = 0; i < state.items.length; i++) if (String(state.items[i].id) === id) it = state.items[i];
+    if (!it) return;
+
+    if (f === 'label') { it.label = inp.value; }
+    else {
+      var clean = String(inp.value).replace(/[^0-9]/g, '');
+      if (inp.value !== clean) inp.value = clean;
+      it[f] = inp.value;
+    }
+    save();
+    scheduleRun();
+  });
+  rowsEl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act="del"]');
+    if (!b) return;
+    var row = b.closest('.prow');
+    var id = row.getAttribute('data-id');
+    state.items = state.items.filter(function (it) { return String(it.id) !== id; });
+    renderRows(); save(); run();
+  });
+  $('#addRow').addEventListener('click', function () {
+    state.items.push({ id: uid++, label: '', w: '', h: '', qty: '1' });
+    renderRows(); save(); run();
+    var rows = rowsEl.querySelectorAll('.prow');
+    var last = rows[rows.length - 1];
+    var inp = last && last.querySelector('[data-f="w"]');
+    if (inp) inp.focus();
+  });
+  $('#resetBtn').addEventListener('click', function () {
+    if (!state.items.length) { toast('이미 비어 있습니다'); return; }
+    if (!confirm('입력한 재단 치수를 모두 지울까요?')) return;
+    state.items = [];
+    renderRows(); save(); run();
+    toast('초기화했습니다');
+  });
+  $('#exampleBtn').addEventListener('click', function () {
+    var ex = [
+      { label: '싱크대 문짝', w: 597, h: 717, qty: 4 },
+      { label: '상부장 문짝', w: 497, h: 717, qty: 4 },
+      { label: '냉장고장 옆판', w: 600, h: 2100, qty: 1 },
+      { label: '아일랜드 옆판', w: 900, h: 900, qty: 1 },
+      { label: '서랍 앞판', w: 597, h: 150, qty: 3 },
+      { label: '걸레받이', w: 120, h: 2400, qty: 2 }
+    ];
+    state.items = ex.map(function (it) {
+      return { id: uid++, label: it.label, w: String(it.w), h: String(it.h), qty: String(it.qty) };
+    });
+    if (!state.mode) state.mode = 'grain';
+    renderMode(); renderRows(); save(); run();
+    toast('예시 데이터를 넣었습니다');
+  });
+
+  /* ---------- run / debounce ---------- */
+  var timer = null;
+  function scheduleRun() {
+    clearTimeout(timer);
+    timer = setTimeout(run, 160);
+  }
+
+  function run() {
+    if (!state.mode) {
+      lastResult = null;
+      resultEl.innerHTML = emptyModeHTML();
+      quickbar.classList.remove('on');
+      return;
+    }
+
+    var W = intOr(state.rollWidth, 1220);
+    if (!(W >= 100)) W = 1220;
+    var Lm = parseFloat(String(state.rollLength).replace(/[^0-9.]/g, ''));
+    if (!isFinite(Lm) || Lm <= 0) Lm = 50;
+    if (Lm < 0.5) Lm = 0.5;
+
+    var res = FilmCore.optimize({
+      items: state.items,
+      mode: state.mode,
+      rollWidth: W,
+      rollLengthMm: Lm * 1000,
+      margin: intOr(state.margin, 0)
+    });
+    lastResult = res;
+    resultEl.innerHTML = renderResult(res);
+
+    if (res.pieceCount > 0) {
+      qbLen.textContent = meters(res.totalUsedLength) + 'm';
+      qbSub.textContent = res.rollsNeeded + '롤 · 로스율 ' + (res.wastePct * 100).toFixed(1) + '% · ' + res.pieceCount + '장';
+      quickbar.classList.add('on');
+    } else {
+      quickbar.classList.remove('on');
+    }
+  }
+
+  /* ---------- result HTML ---------- */
+  function emptyModeHTML() {
+    return '<section class="card empty"><div class="big">📐</div>' +
+      '<p><b>1단계에서 필름 종류를 선택해 주세요.</b></p>' +
+      '<p>세로결 무늬인지 단색·엠보싱인지에 따라 배치 규칙이 달라집니다.</p></section>';
+  }
+
+  function renderResult(res) {
+    var html = '';
+    if (res.pieceCount === 0) {
+      html += '<section class="card empty"><div class="big">✂</div>' +
+        '<p><b>재단 치수를 입력하면 결과가 나옵니다.</b></p>' +
+        '<p>3단계에 가로·세로·수량을 넣거나 예시 데이터로 먼저 확인해 보세요.</p></section>';
+      html += warnHTML(res);
+      return html;
+    }
+    html += tilesHTML(res);
+    var n = 0;
+    res.rolls.forEach(function (r) {
+      r.placements.forEach(function (pl) { pl.no = ++n; });
+    });
+    html += '<section class="card">' + warnHTML(res) + legendHTML(res) +
+            diagNoteHTML(res) + rollsHTML(res) + '</section>';
+    html += guideHTML(res);
+    return html;
+  }
+
+  function tilesHTML(res) {
+    var fullRolls = res.rollsNeeded > 1 ? res.rollsNeeded - 1 : 0;
+    var rollSub;
+    if (res.rollsNeeded <= 1) rollSub = fmt(res.rollLength / 1000) + 'm 원단 1장';
+    else rollSub = (fullRolls ? fmt(fullRolls) + '롤 + ' : '') + meters(res.lastRollUsed) + 'm';
+
+    var kinds = {};
+    res.rolls.forEach(function (r) {
+      r.placements.forEach(function (pl) {
+        var p = pl.piece;
+        kinds[p.itemIndex + '|' + p.w + '|' + p.h + '|' + p.label] = 1;
+      });
+    });
+    var kindCount = Object.keys(kinds).length;
+
+    var remain = res.rollLength - res.lastRollUsed;
+
+    return '<div class="tiles">' +
+      '<div class="tile hi"><div class="k">총 필요 길이</div><div class="v">' + meters(res.totalUsedLength) +
+        '<small>m</small></div><div class="d">' + fmt(res.totalUsedLength) + 'mm</div></div>' +
+      '<div class="tile"><div class="k">필요 롤</div><div class="v">' + res.rollsNeeded + '<small>롤</small></div>' +
+        '<div class="d">' + rollSub + '</div></div>' +
+      '<div class="tile"><div class="k">로스율</div><div class="v">' + (res.wastePct * 100).toFixed(1) +
+        '<small>%</small></div><div class="d">버리는 면적 ' + m2(res.wasteArea) + 'm²</div></div>' +
+      '<div class="tile"><div class="k">재단 수량</div><div class="v">' + res.pieceCount +
+        '<small>장</small></div><div class="d">' + kindCount + '종 · ' +
+        (res.mode === 'grain' ? '세로결 고정' : '회전 허용') + '</div></div>' +
+      '</div>' +
+      '<p class="sum-line">원단 ' + fmt(res.rollWidth) + 'mm × ' + fmt(res.rollLength / 1000) + 'm 기준 · ' +
+      '사용 면적 ' + m2(res.totalArea) + 'm² (원단 ' + m2(res.rollWidth * res.totalUsedLength) + 'm²)' +
+      (res.rollsNeeded === 1 && remain > 0 ? ' · 마지막 롤 남은 길이 ' + meters(remain) + 'm' : '') +
+      (res.margin > 0 ? ' · 여유분 ' + fmt(res.margin) + 'mm 포함 배치' : '') + '</p>';
+  }
+
+  function pname(p) {
+    return (p.label ? p.label : '조각') + (p.seq ? ' #' + p.seq : '');
+  }
+
+  function warnHTML(res) {
+    var out = [];
+    res.tooWide.forEach(function (p) {
+      var n = Math.ceil(p.across / res.rollWidth);
+      out.push('<div class="warn"><span class="ic">⚠</span><div><b>폭 초과 — ' + esc(pname(p)) + ' (' +
+        fmt(p.w) + '×' + fmt(p.h) + ')</b>' +
+        '짧은 변이 ' + fmt(p.across) + 'mm로 원단 폭 ' + fmt(res.rollWidth) + 'mm보다 넓습니다. ' +
+        n + '장으로 나눠 <b>조인(이음)</b>해야 이 배치에 넣을 수 있습니다. ' +
+        '<span class="muted">(무늬 방향을 맞춰 이음선을 잡으세요)</span></div></div>');
+    });
+    res.tooLong.forEach(function (p) {
+      out.push('<div class="warn"><span class="ic">⚠</span><div><b>길이 초과 — ' + esc(pname(p)) + ' (' +
+        fmt(p.w) + '×' + fmt(p.h) + ')</b>' +
+        '긴 변 ' + fmt(p.along) + 'mm가 원단 길이 ' + fmt(res.rollLength) + 'mm보다 깁니다. ' +
+        '2단계에서 원단 길이를 늘리거나 조각을 분할하세요.</div></div>');
+    });
+    res.invalid.forEach(function (v) {
+      out.push('<div class="warn"><span class="ic">⚠</span><div><b>' + (v.index + 1) + '번째 줄을 계산에서 뺐습니다</b>' +
+        (v.reason === 'dim' ? '가로·세로를 0보다 크게 입력하세요.' : '수량을 1 이상 입력하세요.') +
+        (v.label ? ' <span class="muted">(' + esc(v.label) + ')</span>' : '') + '</div></div>');
+    });
+    if (res.unplaced.length) {
+      out.push('<div class="warn"><span class="ic">⚠</span><div><b>배치하지 못한 조각 ' + res.unplaced.length + '개</b>' +
+        res.unplaced.slice(0, 6).map(function (p) { return esc(pname(p)); }).join(', ') +
+        (res.unplaced.length > 6 ? ' 외' : '') + '</div></div>');
+    }
+    return out.length ? '<div class="warns" style="margin:0 0 12px">' + out.join('') + '</div>' : '';
+  }
+
+  function legendHTML(res) {
+    var seen = {}, chips = [];
+    res.rolls.forEach(function (r) {
+      r.placements.forEach(function (pl) {
+        var p = pl.piece;
+        var k = p.itemIndex + '|' + p.w + '|' + p.h + '|' + p.label;
+        if (!seen[k]) {
+          seen[k] = { c: itemColor(p.itemIndex), label: p.label, w: p.w, h: p.h, n: 0 };
+          chips.push(seen[k]);
+        }
+        seen[k].n++;
+      });
+    });
+    if (!chips.length) return '';
+    return '<div class="legend">' + chips.map(function (ch) {
+      return '<span class="lg"><i style="background:' + ch.c + '"></i>' +
+        esc(ch.label || '조각') + ' ' + fmt(ch.w) + '×' + fmt(ch.h) +
+        (ch.n > 1 ? ' ×' + ch.n : '') + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function diagNoteHTML(res) {
+    return '<p class="axis-note">' +
+      '<span>↓ 위에서 아래 = 원단 길이(50m) 방향</span>' +
+      '<span>→ 왼쪽에서 오른쪽 = 원단 폭 ' + fmt(res.rollWidth) + 'mm</span>' +
+      '<span>구간은 조각을 자르지 않는 위치에서만 나뉩니다</span>' +
+      '<span>' + (res.mode === 'grain' ? '결(무늬) 방향 = 길이 방향' : '회전 배치 포함') + '</span>' +
+      '</p>';
+  }
+
+  /* ---------- SVG 배치도 ---------- */
+  /* 원칙: 구간(구간 카드)은 어떤 조각도 지나가지 않는 길이 좌표에서만 나눈다.
+     → 어떤 조각도 두 구간에 걸쳐 잘려 보이는 일이 없다.
+     목표 길이 근처에 그런 좌표가 없으면(긴 조각이 계속 이어지면) 그 구간을 통째로 한 장에 담고
+     길이 축만 축소해서(라벨·눈금은 HTML이라 크기 유지) 한 카드 안에 전부 보여 준다. */
+  var SEG_TARGET = 1500;   // 목표 구간 길이(mm)
+  var SEG_MIN = 520;       // 이보다 짧은 구간은 만들지 않음
+  var SEG_MAX = 2200;      // 목표 근처 경계가 이 안에 없으면 '긴 구간'으로 처리
+  var SEG_LONG = 2200;     // 이보다 길면 축소 표시 구간
+  var SEG_H = 460;         // 축소 구간의 화면 높이 상한(px)
+  var SEG_W = 340;         // 라벨 밀도 계산용 기준 폭(px) - 일반 구간
+  var SEG_W_LONG = 520;    // 라벨 밀도 계산용 기준 폭(px) - 축소 구간
+
+  /* 조각이 지나가지 않는 길이 좌표(자유선)만 모은다:
+     어떤 조각도 그 선 '안쪽'을 지나지 않는 y = 그 선에서 잘라도 조각이 잘리지 않는다. */
+  function freeLines(placements, used) {
+    var cand = [], seen = {}, i, k;
+    function add(v) {
+      v = Math.round(v * 100) / 100;
+      if (v <= 0.5 || v >= used - 0.5) return;
+      var key = String(v);
+      if (seen[key]) return;
+      seen[key] = 1; cand.push(v);
+    }
+    for (i = 0; i < placements.length; i++) {
+      add(placements[i].y);
+      add(placements[i].y + placements[i].h);
+    }
+    cand.sort(function (a, b) { return a - b; });
+    var lines = [];
+    for (k = 0; k < cand.length; k++) {
+      var v = cand[k], crossed = false;
+      for (i = 0; i < placements.length; i++) {
+        var p = placements[i];
+        if (v > p.y + 0.5 && v < p.y + p.h - 0.5) { crossed = true; break; }
+      }
+      if (!crossed) lines.push(v);
+    }
+    return lines;
+  }
+
+  /* 구간 경계 배열 [0, ..., used] */
+  function sectionBounds(placements, used) {
+    used = Math.max(used || 0, 1);
+    var lines = freeLines(placements || [], used);
+    var bounds = [0], cur = 0, guard = 0;
+    while (cur < used - 0.5 && guard++ < 600) {
+      var target = cur + SEG_TARGET, best = null, bestD = Infinity, first = null;
+      for (var i = 0; i < lines.length; i++) {
+        var v = lines[i];
+        if (v <= cur + SEG_MIN) continue;
+        if (first === null) first = v;
+        if (v <= cur + SEG_MAX) {
+          var d = Math.abs(v - target);
+          if (d < bestD) { bestD = d; best = v; }
+        }
+      }
+      // 목표 근처 자유선이 있으면 거기서 끊고, 없으면(긴 구간) 다음 자유선까지 통째로
+      var next = (best !== null) ? best : (first !== null ? first : used);
+      if (next > used - 0.5) next = used;
+      if (next < used - 0.5 && used - next < SEG_MIN) next = used;  // 자투리 꼬리는 앞 구간에 합침
+      if (next <= cur + 0.5) next = used;
+      bounds.push(next);
+      cur = next;
+    }
+    if (bounds[bounds.length - 1] < used - 0.5) bounds.push(used);
+    return bounds;
+  }
+
+  function tickStep(len) {
+    var cands = [100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000];
+    for (var i = 0; i < cands.length; i++) if (len / cands[i] <= 8) return cands[i];
+    return 20000;
+  }
+
+  /* 이 구간을 화면에 어떻게 그릴지: 일반 = 실제 비율, 긴 구간 = 높이 상한에 맞춰 길이 축 축소 */
+  function segGeom(W, len) {
+    var long = len > SEG_LONG;
+    var plotW = long ? SEG_W_LONG : SEG_W;
+    var pmx = plotW / W;                       // 가로 1mm당 px
+    var hpx = long ? SEG_H : 0;
+    var pmy = long ? hpx / len : pmx;            // 세로(길이) 1mm당 px
+    return { long: long, pmx: pmx, pmy: pmy, hpx: hpx, comp: pmx / pmy };
+  }
+
+  function panelHTML(roll, res, y0, len, isLast, totalLen) {
+    var W = res.rollWidth;
+    var g = segGeom(W, len);
+    var out = [];
+    out.push('<div class="seg-fig">');
+
+    // 길이 눈금 (왼쪽 거터) - HTML이라 축소해도 글자가 작아지지 않는다
+    out.push('<div class="seg-ticks" aria-hidden="true">');
+    var step = tickStep(len);
+    for (var v = Math.ceil((y0 + 1) / step) * step; v < y0 + len - 1; v += step) {
+      out.push('<span style="top:' + ((v - y0) / len * 100).toFixed(3) + '%">' + fmt(v) + '</span>');
+    }
+    out.push('</div>');
+
+    out.push('<div class="seg-plot"' + (g.long ? ' style="height:' + g.hpx + 'px"' : '') + '>');
+    out.push('<svg class="seg-svg" viewBox="0 0 ' + W + ' ' + len + '" preserveAspectRatio="none" role="img" aria-label="' +
+      esc('원단 ' + fmt(Math.round(y0)) + 'mm부터 ' + fmt(Math.round(y0 + len)) + 'mm 구간 배치' +
+        (g.long ? ' (길이 약 1/' + g.comp.toFixed(1) + ' 축소 표시)' : '')) + '">');
+
+    for (var i = 0; i < roll.placements.length; i++) {
+      var pl = roll.placements[i];
+      var top = Math.max(pl.y, y0);
+      var bot = Math.min(pl.y + pl.h, y0 + len);
+      if (bot - top <= 0.5) continue;
+      var p = pl.piece;
+      var col = itemColor(p.itemIndex);
+      out.push('<rect x="' + pl.x + '" y="' + (top - y0).toFixed(2) + '" width="' + pl.w + '" height="' + (bot - top).toFixed(2) +
+        '" fill="' + col + '" fill-opacity="0.34" stroke="' + col + '" stroke-width="1.2" stroke-opacity="0.95" vector-effect="non-scaling-stroke"/>');
+    }
+    out.push('</svg>');
+
+    // 겹쳐 얹는 라벨 (조각 크기에 맞춰 실제 px 기준으로 표시 여부 결정)
+    out.push('<div class="seg-ov">');
+    if (y0 === 0) out.push('<span class="seg-mark" style="right:4px;top:3px">원단 시작</span>');
+    if (isLast) out.push('<span class="seg-mark" style="right:4px;bottom:3px">사용 끝</span>');
+
+    for (var j = 0; j < roll.placements.length; j++) {
+      var q = roll.placements[j];
+      if (q.y + q.h <= y0 + 0.5 || q.y >= y0 + len - 0.5) continue;
+      var pc = q.piece;
+      var pw = q.w * g.pmx, ph = q.h * g.pmy;
+      var box = 'left:' + (q.x / W * 100).toFixed(3) + '%;top:' + ((q.y - y0) / len * 100).toFixed(3) + '%;' +
+                'width:' + (q.w / W * 100).toFixed(3) + '%;height:' + (q.h / len * 100).toFixed(3) + '%;';
+      var nm = pc.label ? (pc.label.length > 10 ? pc.label.slice(0, 10) + '…' : pc.label) : '';
+      var showName = !!nm && pw >= 84 && ph >= 40;
+      var showDim = pw >= 58 && ph >= (showName ? 52 : 20);
+      if (showName || showDim) {
+        out.push('<span class="seg-lab" style="' + box + '">' +
+          (showName ? '<b>' + esc(nm) + '</b>' : '') +
+          (showDim ? '<i>' + fmt(pc.w) + '×' + fmt(pc.h) + '</i>' : '') + '</span>');
+      }
+      if (q.no && pw >= 26 && ph >= 18) {
+        out.push('<span class="seg-no" style="left:' + (q.x / W * 100).toFixed(3) + '%;top:' +
+          ((q.y - y0) / len * 100).toFixed(3) + '%;color:' + col + '">#' + q.no + '</span>');
+      }
+      // 결 방향 화살표 (글이 없는 넉넉한 자리일 때만)
+      if (res.mode === 'grain' && !showName && !showDim && pw >= 30 && ph >= 90) {
+        out.push('<span class="seg-ar" style="left:' + ((q.x + q.w / 2) / W * 100).toFixed(3) + '%;top:' +
+          ((q.y - y0 + q.h * 0.18) / len * 100).toFixed(3) + '%;height:' + (q.h * 0.64 / len * 100).toFixed(3) + '%"></span>');
+      }
+    }
+    out.push('</div>');
+    out.push('</div>');   // seg-plot
+    out.push('</div>');   // seg-fig
+    return out.join('');
+  }
+
+  function rollHTML(roll, res) {
+    var used = roll.usedLength || 1;
+    var bounds = sectionBounds(roll.placements, used);
+    var panels = bounds.length - 1;
+    var out = [];
+    out.push('<div class="roll-block">');
+    out.push('<div class="roll-head"><span class="t">' + roll.index + '롤</span>' +
+      '<span class="s">사용 ' + meters(used) + 'm (' + fmt(used) + 'mm) · ' +
+      roll.count + '장 · 로스 ' + (roll.wastePct * 100).toFixed(1) + '% · ' + panels + '구간</span></div>');
+    out.push('<div class="seg-grid">');
+    for (var i = 0; i < panels; i++) {
+      var y0 = bounds[i];
+      var len = bounds[i + 1] - y0;
+      if (len <= 0.5) continue;
+      var g = segGeom(res.rollWidth, len);
+      var isLast = (i === panels - 1);
+      out.push('<div class="seg' + (g.long ? ' long' : '') + '" data-len="' + Math.round(len) + '"' +
+        (g.long ? ' data-zoom="' + g.comp.toFixed(2) + '"' : '') + '>');
+      out.push('<div class="seg-cap"><span>구간 ' + (i + 1) + ' / ' + panels + '</span><span>' +
+        (y0 === 0 ? '원단 시작 ' : '') + fmt(Math.round(y0)) + ' ~ ' + fmt(Math.round(y0 + len)) + 'mm' +
+        (g.long ? ' · <b class="zoom">길이 약 1/' + g.comp.toFixed(1) + ' 축소</b>' : '') +
+        (isLast ? ' · 사용 끝 ' + fmt(Math.round(used)) + 'mm' : '') + '</span></div>');
+      out.push(panelHTML(roll, res, y0, len, isLast, used));
+      out.push('</div>');
+    }
+    out.push('</div></div>');
+    return out.join('');
+  }
+
+  function rollsHTML(res) {
+    return res.rolls.map(function (r) { return rollHTML(r, res); }).join('');
+  }
+
+  /* ---------- 재단 가이드 ---------- */
+  function guideHTML(res) {
+    var rows = [];
+    res.rolls.forEach(function (roll) {
+      roll.placements.forEach(function (pl) {
+        var p = pl.piece;
+        var note = res.mode === 'grain'
+          ? (pl.swapped ? '세로가 폭 방향' : '가로가 폭 방향')
+          : (pl.swapped ? '90° 회전' : '—');
+        rows.push('<tr>' +
+          '<td class="num">' + pl.no + '</td>' +
+          '<td class="roll">' + roll.index + '롤</td>' +
+          '<td>' + (p.label ? esc(p.label) : '<span class="muted">—</span>') + '</td>' +
+          '<td class="mono">' + fmt(p.w) + ' × ' + fmt(p.h) + '</td>' +
+          '<td class="mono">' + fmt(pl.x) + ' – ' + fmt(pl.x + p.w) + '</td>' +
+          '<td class="mono">' + fmt(pl.y) + ' – ' + fmt(pl.y + p.h) + '</td>' +
+          '<td class="note">' + note + '</td>' +
+        '</tr>');
+      });
+    });
+
+    return '<section class="card">' +
+      '<h2 class="card-h">현장 재단 가이드 <span class="tag">' + res.pieceCount + '장</span></h2>' +
+      '<p class="sum-line" style="margin-top:-4px">위치는 원단 시작점(0,0)에서 잰 <b>재단 영역(시작~끝)</b>입니다. ' +
+      '폭 = 원단 ' + fmt(res.rollWidth) + 'mm의 가로 위치, 길이 = 50m 방향 위치.' +
+      (res.margin > 0 ? '<br>조각 사이에 여유분 ' + fmt(res.margin) + 'mm를 두고 배치했으므로 옆 조각의 시작점이 ' +
+        fmt(res.margin) + 'mm 더 뒤에서 시작합니다. 재단은 표의 치수대로 하세요.' : '') +
+      '</p>' +
+      '<div class="scroll-x"><table class="guide">' +
+      '<thead><tr><th>#</th><th>롤</th><th>이름</th><th>재단 치수 (mm)</th><th>폭 위치 (mm)</th><th>길이 위치 (mm)</th><th>방향</th></tr></thead>' +
+      '<tbody>' + rows.join('') + '</tbody></table></div>' +
+      '<div class="row-actions no-print">' +
+      '<button type="button" class="btn primary" data-act="copy">결과 복사</button>' +
+      '<button type="button" class="btn" data-act="print">인쇄 · PDF 저장</button>' +
+      '</div></section>';
+  }
+
+  /* ---------- 복사용 텍스트 ---------- */
+  function buildCopyText(res) {
+    var L = [];
+    var modeTxt = res.mode === 'grain' ? '세로결 무늬 (결 = 원단 길이 방향)' : '단색·엠보싱 (90° 회전 허용)';
+    L.push('■ 인테리어 필름 재단표');
+    L.push('필름: ' + modeTxt);
+    L.push('원단: 폭 ' + fmt(res.rollWidth) + 'mm × 길이 ' + fmt(res.rollLength / 1000) + 'm' +
+      (res.margin > 0 ? ' / 여유분 ' + fmt(res.margin) + 'mm' : ' / 여유분 없음'));
+    L.push('총 사용: ' + meters(res.totalUsedLength) + 'm (' + fmt(res.totalUsedLength) + 'mm) · ' +
+      res.rollsNeeded + '롤 · 로스율 ' + (res.wastePct * 100).toFixed(1) + '%');
+    L.push('재단: ' + res.pieceCount + '장');
+    L.push('');
+
+    var n = 0;
+    res.rolls.forEach(function (roll) {
+      L.push('[' + roll.index + '롤] 사용 ' + meters(roll.usedLength) + 'm · ' + roll.count + '장 · 로스 ' +
+        (roll.wastePct * 100).toFixed(1) + '%');
+      roll.placements.forEach(function (pl) {
+        n++;
+        var p = pl.piece;
+        var dir = res.mode === 'plain' && pl.swapped ? ' (90° 회전)' : '';
+        L.push(n + '. ' + (p.label || '조각') + ' | 재단 ' + fmt(p.w) + '×' + fmt(p.h) + 'mm' + dir +
+          ' | 폭 ' + fmt(pl.x) + '–' + fmt(pl.x + p.w) + ' / 길이 ' + fmt(pl.y) + '–' + fmt(pl.y + p.h));
+      });
+      L.push('');
+    });
+    L.push('※ 위치는 원단 시작(폭 0, 길이 0) 기준의 재단 영역(시작~끝)' +
+      (res.margin > 0 ? ', 조각 사이 여유분 ' + fmt(res.margin) + 'mm' : '') + '. ' +
+      (res.mode === 'grain' ? '결(무늬) 방향은 길이 방향입니다.' : ''));
+    return L.join('\n').trim();
+  }
+
+  async function copyResult() {
+    if (!lastResult || !lastResult.pieceCount) { toast('복사할 결과가 없습니다'); return; }
+    var text = buildCopyText(lastResult);
+    var ok = false;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = false; }
+    }
+    if (!ok) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (e) { ok = false; }
+    }
+    toast(ok ? '재단표를 복사했습니다' : '복사가 막혔습니다. 표를 길게 눌러 선택해 주세요');
+  }
+  $('#qbJump').addEventListener('click', function () {
+    var target = document.getElementById('result');
+    if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  resultEl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act');
+    if (act === 'copy') copyResult();
+    if (act === 'print') window.print();
+  });
+
+  /* ---------- init ---------- */
+  /* 테스트용 훅: 구간 나누기 로직을 그대로 검증할 수 있게 노출 (화면 동작에는 영향 없음) */
+  if (typeof window !== 'undefined') {
+    window.FilmUI = {
+      sectionBounds: sectionBounds,
+      freeLines: freeLines,
+      segGeom: segGeom,
+      rollHTML: rollHTML,
+      result: function () { return lastResult; }
+    };
+  }
+
+  function init() {
+    load();
+    $('#rollWidth').value = state.rollWidth;
+    $('#rollLength').value = state.rollLength;
+    $('#margin').value = state.margin;
+    bindNum($('#rollWidth'), 'rollWidth', false);
+    bindNum($('#rollLength'), 'rollLength', true);
+    bindNum($('#margin'), 'margin', false);
+    renderMode();
+    renderMarginChips();
+    renderRows();
+    run();
+  }
+  init();
+})();
+</script>
+<!-- PWA: 홈 화면에 추가 및 오프라인 실행 -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
