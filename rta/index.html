@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>15-Band RTA & DSP EQ 보정기</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#090b10">
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter & JetBrains Mono 폰트 로드 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        studio: {
+                            950: '#090b10',
+                            900: '#11151f',
+                            800: '#1a202e',
+                            700: '#262f42',
+                            accent: '#06b6d4', // Cyan 500
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 모바일 터치 하이라이트 제거 및 스크롤바 커스텀 */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background-color: #090b10;
+            color: #e2e8f0;
+            overscroll-behavior-y: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #11151f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262f42;
+            border-radius: 3px;
+        }
+        /* 레인지 슬라이더 스타일링 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #262f42;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px;
+            background-color: #06b6d4;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none">
+
+    <!-- 상단 헤더 & 상태 표시줄 -->
+    <header class="bg-studio-900 border-b border-studio-700 px-4 py-3 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div id="statusIndicator" class="w-3 h-3 rounded-full bg-slate-600 transition-colors duration-300"></div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
+                        15-Band RTA <span class="text-cyan-400 font-mono text-xs sm:text-sm">& DSP 보정기</span>
+                    </h1>
+                    <p id="audioInfoText" class="text-[11px] text-slate-400 font-mono">대기 중 • 2/3 OCT • RAW MIC</p>
+                </div>
+            </div>
+            
+            <!-- 상단 액션 버튼 (복사 / CSV) -->
+            <div class="flex items-center space-x-1.5">
+                <button id="btnCopy" class="p-2 rounded-lg bg-studio-800 hover:bg-studio-700 active:scale-95 border border-studio-700 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <span>보정값 복사</span>
+                </button>
+                <button id="btnCsv" class="p-2 rounded-lg bg-studio-800 hover:bg-studio-700 active:scale-95 border border-studio-700 text-slate-200 text-xs font-medium flex items-center space-x-1 transition">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span>CSV</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 메인 컨트롤 버튼 그리드 (4열 배치) -->
+        <div class="max-w-3xl mx-auto grid grid-cols-4 gap-1.5 sm:gap-2 mt-3">
+            <!-- 마이크 시작/정지 -->
+            <button id="btnMic" class="py-2.5 px-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white font-semibold text-xs sm:text-sm shadow-md shadow-cyan-950/50 flex items-center justify-center space-x-1 transition">
+                <svg id="iconMic" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                <span id="textMic" class="truncate">측정 시작</span>
+            </button>
+
+            <!-- Hold (측정값 고정) -->
+            <button id="btnHold" class="py-2.5 px-1.5 rounded-xl bg-studio-800 hover:bg-studio-700 active:scale-95 border border-studio-700 text-slate-300 font-semibold text-xs sm:text-sm flex items-center justify-center space-x-1 transition">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="textHold">HOLD</span>
+            </button>
+
+            <!-- Reset Avg (평균 초기화) -->
+            <button id="btnResetPeak" class="py-2.5 px-1.5 rounded-xl bg-studio-800 hover:bg-studio-700 active:scale-95 border border-studio-700 text-slate-300 font-semibold text-xs sm:text-sm flex items-center justify-center space-x-1 transition">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <span class="truncate">초기화</span>
+            </button>
+
+            <!-- 핑크 노이즈 생성기 -->
+            <button id="btnPinkNoise" class="py-2.5 px-1.5 rounded-xl bg-studio-800 hover:bg-studio-700 active:scale-95 border border-studio-700 text-pink-400 font-semibold text-xs sm:text-sm flex items-center justify-center space-x-1 transition">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <span id="textPinkNoise" class="truncate">핑크노이즈</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 알림 / 에러 배너 (숨김 기본) -->
+    <div id="alertBanner" class="hidden max-w-3xl mx-auto w-full px-4 pt-3">
+        <div class="bg-rose-950/90 border border-rose-500/50 text-rose-200 px-4 py-3 rounded-xl text-xs sm:text-sm flex items-start space-x-2.5 shadow-lg">
+            <svg class="w-5 h-5 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <div class="flex-1">
+                <p id="alertTitle" class="font-bold text-rose-300">오류 안내</p>
+                <p id="alertMessage" class="mt-0.5 text-rose-200/90 leading-relaxed"></p>
+            </div>
+            <button id="btnCloseAlert" class="text-rose-400 hover:text-white p-1">✕</button>
+        </div>
+    </div>
+
+    <!-- 토스트 메시지 (복사 완료 등) -->
+    <div id="toastMsg" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-cyan-500/50 text-white px-4 py-2.5 rounded-full text-xs font-medium shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300">
+        메시지
+    </div>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-1 max-w-3xl w-full mx-auto px-3 sm:px-4 py-3 space-y-3">
+
+        <!-- 실시간 RTA 그래프 카드 -->
+        <section class="bg-studio-900 border border-studio-700 rounded-2xl p-3 shadow-xl">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-300">15-Band RTA (2/3 Oct)</span>
+                    <span id="avgLevelBadge" class="px-2 py-0.5 rounded bg-studio-800 border border-studio-700 text-[11px] font-mono text-cyan-400">
+                        Ref: -- dB
+                    </span>
+                </div>
+
+                <!-- 응답 속도 선택 (Fast / Slow / Infinite Avg) -->
+                <div class="flex items-center bg-studio-950 p-0.5 rounded-lg border border-studio-700 text-[11px] font-mono">
+                    <button data-mode="fast" class="smooth-btn px-2 py-1 rounded-md text-slate-400 hover:text-white transition">FAST</button>
+                    <button data-mode="slow" class="smooth-btn px-2 py-1 rounded-md bg-studio-700 text-cyan-400 font-bold transition">SLOW</button>
+                    <button data-mode="avg" class="smooth-btn px-2 py-1 rounded-md text-slate-400 hover:text-white transition">INF AVG</button>
+                </div>
+            </div>
+
+            <!-- 선택된 주파수 밴드 상세 정보 배너 (캔버스 터치 시 갱신) -->
+            <div id="selectedBandBanner" class="mb-2 px-3 py-1.5 rounded-lg bg-studio-950/90 border border-studio-800 flex items-center justify-between text-[11px] font-mono">
+                <span class="text-slate-400">밴드 터치 시 상세 수치 표시</span>
+                <span id="selectedBandDetail" class="text-cyan-300 font-semibold">1kHz • 측정: -- dB • 보정: 0.0 dB</span>
+            </div>
+
+            <!-- 캔버스 컨테이너 (반응형 높이) -->
+            <div id="canvasWrapper" class="relative w-full h-60 sm:h-72 bg-studio-950 rounded-xl border border-studio-800 overflow-hidden cursor-pointer">
+                <canvas id="rtaCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- 타겟 커브 프리셋 & 마이크 저역 보정 컨트롤 -->
+            <div class="mt-3 pt-2.5 border-t border-studio-800 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- 타겟 커브 프리셋 선택 -->
+                <div class="flex flex-col space-y-1">
+                    <label for="targetCurveSelect" class="text-xs text-slate-400 font-medium">타겟 커브 프리셋 (Target Curve)</label>
+                    <select id="targetCurveSelect" class="w-full bg-studio-950 border border-studio-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-medium focus:outline-none focus:border-cyan-500">
+                        <option value="flat">Flat (표준 평탄 0dB)</option>
+                        <option value="house">Car Audio / House Curve (저역 +3dB, 고역 -2dB)</option>
+                    </select>
+                </div>
+
+                <!-- 안드로이드 마이크 저역 롤오프 보정 토글 -->
+                <div class="flex flex-col justify-between space-y-1">
+                    <span class="text-xs text-slate-400 font-medium">스마트폰 마이크 저역 롤오프 보정</span>
+                    <button id="btnMicComp" class="w-full py-1.5 px-3 rounded-lg bg-studio-950 border border-studio-700 text-xs font-medium text-slate-300 flex items-center justify-between hover:border-slate-500 transition">
+                        <span>80Hz 이하 마이크 감쇄 보정</span>
+                        <span id="micCompBadge" class="px-1.5 py-0.5 rounded bg-studio-800 text-[10px] font-mono text-slate-400">OFF</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 타겟 기준선 미세 조정 슬라이더 & 핑크노이즈 볼륨 -->
+            <div class="mt-2.5 pt-2.5 border-t border-studio-800/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- 타겟 오프셋 슬라이더 -->
+                <div class="flex flex-col space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-medium">기준선 레벨 오프셋 (Offset)</span>
+                        <span id="targetOffsetVal" class="font-mono font-bold text-amber-400">0.0 dB</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="range" id="targetOffsetSlider" min="-15" max="15" step="0.5" value="0" class="w-full">
+                        <button id="btnResetOffset" class="px-2 py-1 text-[10px] font-mono bg-studio-800 hover:bg-studio-700 rounded border border-studio-700 text-slate-300 shrink-0">
+                            0dB
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 내장 핑크 노이즈 출력 볼륨 -->
+                <div class="flex flex-col space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-medium">핑크노이즈 출력 게인</span>
+                        <span id="pinkGainVal" class="font-mono font-bold text-pink-400">-12 dB</span>
+                    </div>
+                    <input type="range" id="pinkGainSlider" min="-36" max="0" step="1" value="-12" class="w-full">
+                </div>
+            </div>
+        </section>
+
+        <!-- +6dB 이상 과도한 부스트 경고 배지 (조건부 표시) -->
+        <div id="boostWarningBanner" class="hidden bg-amber-950/80 border border-amber-500/40 rounded-xl px-3.5 py-2.5 flex items-start space-x-2.5 text-xs">
+            <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <div class="text-amber-200/95 leading-relaxed">
+                <strong class="text-amber-300">과도한 부스트(+6dB 초과) 감지:</strong> DSP에서 +6dB 이상 크게 올리면 앰프 클리핑 및 스피커 왜곡이 발생할 수 있습니다. 부스트 대신 <strong>튀는 주파수(피크)를 먼저 깎아내는(Cut-first)</strong> 세팅을 권장합니다.
+            </div>
+        </div>
+
+        <!-- 15밴드 DSP 보정값 테이블 섹션 -->
+        <section class="bg-studio-900 border border-studio-700 rounded-2xl p-3 shadow-xl">
+            <div class="flex items-center justify-between mb-2.5">
+                <div>
+                    <h2 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">15-Band DSP EQ 보정값 (0.5dB Step)</h2>
+                    <p class="text-[11px] text-slate-400">중음역(100Hz~6.3kHz) 기준 산출 • <span class="text-cyan-400">+부스트</span> / <span class="text-rose-400">-컷</span></p>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-studio-950 border border-studio-800 text-[10px] font-mono text-slate-400">±12.0 dB MAX</span>
+            </div>
+
+            <!-- 15밴드 데이터 테이블 -->
+            <div class="overflow-x-auto rounded-xl border border-studio-800">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-studio-950 text-[11px] font-mono text-slate-400 border-b border-studio-800">
+                            <th class="py-2 px-2.5">FREQ</th>
+                            <th class="py-2 px-2 text-right">MEAS (dB)</th>
+                            <th class="py-2 px-2 text-right">DEV (dB)</th>
+                            <th class="py-2 px-2.5 text-right text-slate-200">DSP EQ</th>
+                            <th class="py-2 px-2.5 w-20 sm:w-28 text-center">CURVE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eqTableBody" class="divide-y divide-studio-800/60 text-xs font-mono">
+                        <!-- JS로 15개 행 자동 렌더링 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 사용 팁 안내 푸터 -->
+        <footer class="text-[11px] text-slate-500 px-1 pb-4 leading-relaxed">
+            <p>• <strong class="text-slate-400">15밴드 DSP 세팅 팁:</strong> 청취 위치에 마이크를 두고 핑크노이즈 재생 후 <strong>INF AVG</strong> 모드로 5~10초간 평균화한 뒤 <strong>HOLD</strong>를 눌러 고정하세요. 그래프로 표시된 점선(타겟)과 흰색 선(예상 보정 커브)을 참고해 DSP에 입력하세요.</p>
+        </footer>
+    </main>
+
+    <script>
+        /**
+         * ============================================================================
+         * 15-Band (2/3 Octave) Pink Noise RTA & DSP EQ Calibrator
+         * Web Audio API + Canvas Real-Time Visualization
+         * ============================================================================
+         */
+
+        // 1. ISO 표준 15밴드 중심 주파수 배열 (25Hz ~ 16kHz, 2/3 옥타브 간격)
+        const ISO_BANDS = [
+            25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000
+        ];
+        const NUM_BANDS = ISO_BANDS.length; // 15
+
+        // 2/3 옥타브 대역폭 승수: 2^(1/3) ≈ 1.25992105
+        const OCTAVE_FACTOR = Math.pow(2, 1 / 3);
+
+        // Car Audio / House Curve 타겟 오프셋 (15밴드별 dB)
+        // 저역(25~100Hz) 부드러운 부스트(+3dB -> 0dB), 고역(4k~16kHz) 자연스러운 롤오프(-0.5dB -> -2.0dB)
+        const HOUSE_CURVE_OFFSETS = [
+            3.0, 3.0, 2.5, 1.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, -1.0, -1.5, -2.0
+        ];
+
+        // 안드로이드 일반 MEMS 마이크 저역 롤오프 보상치 (80Hz 이하 보상)
+        const MIC_LOW_END_COMP = [
+            4.5, 3.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        ];
+
+        // 전역 상태 객체
+        const state = {
+            isMeasuring: false,
+            isHolding: false,
+            isPinkPlaying: false,
+            responseMode: 'slow',        // 'fast' | 'slow' | 'avg' (Infinite Avg)
+            smoothingTimeConstant: 0.85,
+            avgSampleCount: 0,           // Infinite Avg 누적 프레임 수
+            targetCurvePreset: 'flat',   // 'flat' | 'house'
+            micLowEndComp: false,        // 마이크 저역 보정 여부
+            targetOffsetDb: 0.0,         // 사용자 전체 기준선 오프셋 (dB)
+            pinkGainDb: -12,             // 핑크 노이즈 출력 게인 (dB)
+            fftSize: 16384,              // 저주파수 해상도 확보를 위한 16384 FFT
+            sampleRate: 48000,
+            selectedBandIdx: 8,          // 기본 선택 밴드 (1kHz)
+            
+            // 측정 및 계산 데이터 배열 (15밴드)
+            bandDb: new Float32Array(NUM_BANDS).fill(-90),       // 현재 측정/평균 dB
+            peakHoldDb: new Float32Array(NUM_BANDS).fill(-90),   // 피크 홀드 틱(Tick) dB
+            heldBandDb: new Float32Array(NUM_BANDS).fill(-90),   // Hold 상태일 때 고정된 dB
+            targetBandDb: new Float32Array(NUM_BANDS).fill(-50), // 각 밴드별 최종 목표 타겟 dB
+            deviationDb: new Float32Array(NUM_BANDS).fill(0),    // 타겟 대비 편차 (Measured - Target)
+            correctionDb: new Float32Array(NUM_BANDS).fill(0),   // 0.5dB 반올림 DSP 보정값 (±12dB)
+            baseRefDb: -40.0,                                    // 기준 중음역 평균 레벨
+            bandBinRanges: []                                    // 각 밴드별 FFT 빈(Bin) 인덱스 범위
+        };
+
+        // Web Audio API 노드 참조 변수
+        let audioCtx = null;
+        let micStream = null;
+        let micSource = null;
+        let analyser = null;
+        let pinkNoiseNode = null;
+        let pinkGainNode = null;
+        let animationFrameId = null;
+
+        // DOM 요소 캐싱
+        const el = {
+            btnMic: document.getElementById('btnMic'),
+            textMic: document.getElementById('textMic'),
+            btnHold: document.getElementById('btnHold'),
+            textHold: document.getElementById('textHold'),
+            btnPinkNoise: document.getElementById('btnPinkNoise'),
+            textPinkNoise: document.getElementById('textPinkNoise'),
+            btnCopy: document.getElementById('btnCopy'),
+            btnCsv: document.getElementById('btnCsv'),
+            btnResetPeak: document.getElementById('btnResetPeak'),
+            btnResetOffset: document.getElementById('btnResetOffset'),
+            btnMicComp: document.getElementById('btnMicComp'),
+            micCompBadge: document.getElementById('micCompBadge'),
+            targetCurveSelect: document.getElementById('targetCurveSelect'),
+            statusIndicator: document.getElementById('statusIndicator'),
+            audioInfoText: document.getElementById('audioInfoText'),
+            avgLevelBadge: document.getElementById('avgLevelBadge'),
+            selectedBandDetail: document.getElementById('selectedBandDetail'),
+            boostWarningBanner: document.getElementById('boostWarningBanner'),
+            targetOffsetSlider: document.getElementById('targetOffsetSlider'),
+            targetOffsetVal: document.getElementById('targetOffsetVal'),
+            pinkGainSlider: document.getElementById('pinkGainSlider'),
+            pinkGainVal: document.getElementById('pinkGainVal'),
+            canvasWrapper: document.getElementById('canvasWrapper'),
+            canvas: document.getElementById('rtaCanvas'),
+            eqTableBody: document.getElementById('eqTableBody'),
+            alertBanner: document.getElementById('alertBanner'),
+            alertTitle: document.getElementById('alertTitle'),
+            alertMessage: document.getElementById('alertMessage'),
+            btnCloseAlert: document.getElementById('btnCloseAlert'),
+            toastMsg: document.getElementById('toastMsg')
+        };
+
+        const ctx = el.canvas.getContext('2d');
+
+        /**
+         * 주파수 포맷팅 유틸리티 (예: 1000 -> "1k", 1600 -> "1.6k")
+         */
+        function formatFreq(freq) {
+            if (freq >= 1000) {
+                const k = freq / 1000;
+                return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
+            }
+            return freq.toString();
+        }
+
+        /**
+         * 토스트 알림 표시
+         */
+        let toastTimeout = null;
+        function showToast(msg) {
+            el.toastMsg.textContent = msg;
+            el.toastMsg.classList.remove('opacity-0');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                el.toastMsg.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        /**
+         * 에러/경고 배너 표시
+         */
+        function showAlert(title, message) {
+            el.alertTitle.textContent = title;
+            el.alertMessage.textContent = message;
+            el.alertBanner.classList.remove('hidden');
+        }
+
+        el.btnCloseAlert.addEventListener('click', () => {
+            el.alertBanner.classList.add('hidden');
+        });
+
+        /**
+         * AudioContext 초기화 및 브라우저 호환성 처리
+         */
+        function ensureAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+                state.sampleRate = audioCtx.sampleRate;
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            computeBandBinRanges();
+        }
+
+        /**
+         * 각 2/3 옥타브 밴드에 해당하는 FFT Bin 인덱스 범위 계산
+         * 하한 주파수: fc / 2^(1/3), 상한 주파수: fc * 2^(1/3)
+         */
+        function computeBandBinRanges() {
+            const binCount = state.fftSize / 2;
+            const binWidth = state.sampleRate / state.fftSize;
+
+            state.bandBinRanges = ISO_BANDS.map(fc => {
+                const fLow = fc / OCTAVE_FACTOR;
+                const fHigh = fc * OCTAVE_FACTOR;
+
+                let startBin = Math.floor(fLow / binWidth);
+                let endBin = Math.ceil(fHigh / binWidth);
+
+                // 유효 인덱스 범위 클램핑
+                startBin = Math.max(1, Math.min(binCount - 1, startBin));
+                endBin = Math.max(startBin, Math.min(binCount - 1, endBin));
+
+                return { fc, fLow, fHigh, startBin, endBin };
+            });
+        }
+
+        /**
+         * Paul Kellet 알고리즘 기반 실시간 핑크 노이즈 생성기
+         * 백색 소음(White Noise)을 필터링하여 옥타브당 -3dB 감쇠하는 정밀 핑크 노이즈 생성
+         */
+        function togglePinkNoise() {
+            try {
+                ensureAudioContext();
+
+                if (state.isPinkPlaying) {
+                    // 핑크 노이즈 정지
+                    if (pinkNoiseNode) {
+                        pinkNoiseNode.disconnect();
+                        pinkNoiseNode = null;
+                    }
+                    if (pinkGainNode) {
+                        pinkGainNode.disconnect();
+                        pinkGainNode = null;
+                    }
+                    state.isPinkPlaying = false;
+                    el.btnPinkNoise.classList.remove('bg-pink-600', 'text-white', 'border-pink-500');
+                    el.btnPinkNoise.classList.add('bg-studio-800', 'text-pink-400', 'border-studio-700');
+                    el.textPinkNoise.textContent = '핑크노이즈';
+                    showToast('핑크 노이즈 출력 정지');
+                } else {
+                    // 핑크 노이즈 시작 (4096 버퍼 크기 ScriptProcessorNode 사용 - 모바일 호환성 최상)
+                    const bufferSize = 4096;
+                    pinkNoiseNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+                    // Paul Kellet 필터 상태 변수
+                    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+                    pinkNoiseNode.onaudioprocess = function(e) {
+                        const output = e.outputBuffer.getChannelData(0);
+                        for (let i = 0; i < bufferSize; i++) {
+                            const white = Math.random() * 2 - 1;
+                            b0 = 0.99886 * b0 + white * 0.0555179;
+                            b1 = 0.99332 * b1 + white * 0.0750759;
+                            b2 = 0.96900 * b2 + white * 0.1538520;
+                            b3 = 0.86650 * b3 + white * 0.3104856;
+                            b4 = 0.55000 * b4 + white * 0.5329522;
+                            b5 = -0.7616 * b5 - white * 0.0168980;
+                            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                            output[i] *= 0.11; // 클리핑 방지 스케일링
+                            b6 = white * 0.115926;
+                        }
+                    };
+
+                    pinkGainNode = audioCtx.createGain();
+                    pinkGainNode.gain.value = Math.pow(10, state.pinkGainDb / 20);
+
+                    pinkNoiseNode.connect(pinkGainNode);
+                    pinkGainNode.connect(audioCtx.destination);
+
+                    state.isPinkPlaying = true;
+                    el.btnPinkNoise.classList.remove('bg-studio-800', 'text-pink-400', 'border-studio-700');
+                    el.btnPinkNoise.classList.add('bg-pink-600', 'text-white', 'border-pink-500');
+                    el.textPinkNoise.textContent = '노이즈 정지';
+                    showToast('핑크 노이즈 재생 중');
+                }
+            } catch (err) {
+                showAlert('오디오 출력 오류', '핑크 노이즈 생성기를 실행할 수 없습니다: ' + err.message);
+            }
+        }
+
+        /**
+         * 스마트폰 원본 마이크 입력 시작/정지
+         * 에코 캔슬링, 노이즈 억제, 자동 게인 제어(AGC)를 반드시 비활성화하여 평탄한 주파수 응답 확보
+         */
+        async function toggleMicrophone() {
+            if (state.isMeasuring) {
+                stopMicrophone();
+                return;
+            }
+
+            try {
+                ensureAudioContext();
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('이 브라우저는 마이크 입력(getUserMedia)을 지원하지 않습니다. HTTPS 환경이나 최신 크롬 브라우저를 사용해주세요.');
+                }
+
+                // 스마트폰 오디오 후처리 비활성화 요청
+                const constraints = {
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        channelCount: 1
+                    },
+                    video: false
+                };
+
+                micStream = await navigator.mediaDevices.getUserMedia(constraints);
+                micSource = audioCtx.createMediaStreamSource(micStream);
+
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = state.fftSize;
+                // AnalyserNode 자체 스무딩은 0으로 두고, 1/3 옥타브 에너지 합산 후 정밀 시간 평균화 적용
+                analyser.smoothingTimeConstant = 0;
+
+                micSource.connect(analyser);
+
+                state.isMeasuring = true;
+                el.alertBanner.classList.add('hidden');
+                updateMicUI(true);
+                showToast('마이크 실시간 RTA 측정 시작');
+
+                // 분석 루프 시작
+                startAnalysisLoop();
+
+            } catch (err) {
+                console.error('Microphone access error:', err);
+                let userMsg = '마이크 접근 권한이 거부되었거나 장치를 찾을 수 없습니다.';
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    userMsg = '브라우저 주소창 자물쇠(또는 설정) 아이콘을 눌러 [마이크] 권한을 "허용"으로 변경한 뒤 다시 시도해주세요.';
+                } else if (err.message) {
+                    userMsg = err.message;
+                }
+                showAlert('마이크 접근 실패', userMsg);
+                stopMicrophone();
+            }
+        }
+
+        /**
+         * 마이크 측정 정지 및 리소스 해제
+         */
+        function stopMicrophone() {
+            state.isMeasuring = false;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+                micStream = null;
+            }
+            if (micSource) {
+                micSource.disconnect();
+                micSource = null;
+            }
+            analyser = null;
+            updateMicUI(false);
+        }
+
+        /**
+         * 마이크 상태에 따른 상단 UI 업데이트
+         */
+        function updateMicUI(active) {
+            if (active) {
+                el.btnMic.classList.remove('bg-cyan-600', 'hover:bg-cyan-500');
+                el.btnMic.classList.add('bg-rose-600', 'hover:bg-rose-500');
+                el.textMic.textContent = '측정 정지';
+                el.statusIndicator.classList.remove('bg-slate-600');
+                el.statusIndicator.classList.add('bg-emerald-400', 'animate-pulse');
+                el.audioInfoText.textContent = `MEASURING • ${state.sampleRate}Hz • 2/3 OCT`;
+            } else {
+                el.btnMic.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+                el.btnMic.classList.add('bg-cyan-600', 'hover:bg-cyan-500');
+                el.textMic.textContent = '측정 시작';
+                el.statusIndicator.classList.remove('bg-emerald-400', 'animate-pulse');
+                el.statusIndicator.classList.add('bg-slate-600');
+                el.audioInfoText.textContent = `대기 중 • 2/3 OCT • RAW MIC`;
+            }
+        }
+
+        /**
+         * 실시간 오디오 분석 및 렌더링 루프
+         */
+        let lastTableUpdateTime = 0;
+
+        function startAnalysisLoop() {
+            const binCount = analyser.frequencyBinCount;
+            const floatFreqData = new Float32Array(binCount);
+
+            function loop(timestamp) {
+                if (!state.isMeasuring) return;
+
+                if (!state.isHolding) {
+                    // 1. FFT 주파수 데이터(dBFS) 획득
+                    analyser.getFloatFrequencyData(floatFreqData);
+
+                    // 2. 15밴드 각 구간별 에너지 합산 (Power Sum)
+                    if (state.responseMode === 'avg') {
+                        state.avgSampleCount++;
+                    }
+
+                    for (let i = 0; i < NUM_BANDS; i++) {
+                        const { startBin, endBin } = state.bandBinRanges[i];
+                        let powerSum = 0;
+
+                        for (let b = startBin; b <= endBin; b++) {
+                            const db = floatFreqData[b];
+                            if (db > -140 && isFinite(db)) {
+                                // dB 값을 선형 파워(10^(dB/10))로 변환하여 누적 합산
+                                powerSum += Math.pow(10, db / 10);
+                            }
+                        }
+
+                        // 합산된 에너지를 다시 dB로 변환 (2/3 옥타브 밴드 파워 레벨)
+                        let currentBandDb = powerSum > 0 ? 10 * Math.log10(powerSum) : -100;
+                        
+                        // 마이크 저역 롤오프 보정 적용 여부
+                        if (state.micLowEndComp) {
+                            currentBandDb += MIC_LOW_END_COMP[i];
+                        }
+                        currentBandDb = Math.max(-100, Math.min(0, currentBandDb));
+
+                        // 시간 평균화 처리 (Fast / Slow / Infinite Avg)
+                        if (state.bandDb[i] <= -89 || (state.responseMode === 'avg' && state.avgSampleCount === 1)) {
+                            state.bandDb[i] = currentBandDb;
+                        } else if (state.responseMode === 'avg') {
+                            // 누적 이동 평균 (Cumulative Moving Average)
+                            const n = state.avgSampleCount;
+                            state.bandDb[i] = state.bandDb[i] + (currentBandDb - state.bandDb[i]) / n;
+                        } else {
+                            // 지수 이동 평균 (Exponential Moving Average)
+                            const alpha = state.smoothingTimeConstant;
+                            state.bandDb[i] = alpha * state.bandDb[i] + (1 - alpha) * currentBandDb;
+                        }
+
+                        // 피크 홀드(Peak Hold) 갱신 및 서서히 감쇠
+                        if (state.bandDb[i] >= state.peakHoldDb[i]) {
+                            state.peakHoldDb[i] = state.bandDb[i];
+                        } else {
+                            state.peakHoldDb[i] = Math.max(state.bandDb[i], state.peakHoldDb[i] - 0.12);
+                        }
+                    }
+
+                    // 3. DSP 보정값 계산
+                    calculateDspCorrections(state.bandDb);
+                }
+
+                // 4. 캔버스 RTA 그래프 그리기 (60fps)
+                drawRtaCanvas();
+
+                // 5. DOM 테이블 및 선택 밴드 상세 업데이트 (약 110ms 간격)
+                if (timestamp - lastTableUpdateTime > 110) {
+                    updateEqTable();
+                    updateSelectedBandBanner();
+                    lastTableUpdateTime = timestamp;
+                }
+
+                animationFrameId = requestAnimationFrame(loop);
+            }
+
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        /**
+         * 기준 타겟 레벨 및 각 밴드별 DSP 보정값 산출
+         * 중음역대 (100Hz ~ 6.3kHz, 인덱스 3 ~ 12)의 평균을 0dB 기준선으로 설정
+         */
+        function calculateDspCorrections(sourceDbArray) {
+            let sum = 0;
+            let count = 0;
+            // 인덱스 3(100Hz) ~ 인덱스 12(6300Hz)
+            for (let i = 3; i <= 12; i++) {
+                if (sourceDbArray[i] > -85) {
+                    sum += sourceDbArray[i];
+                    count++;
+                }
+            }
+
+            const baseAvg = count > 0 ? (sum / count) : -50.0;
+            state.baseRefDb = baseAvg + state.targetOffsetDb;
+
+            el.avgLevelBadge.textContent = `Ref: ${state.baseRefDb.toFixed(1)} dB`;
+
+            let hasHighBoost = false;
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                // 타겟 커브 프리셋 오프셋 반영
+                const curveOffset = state.targetCurvePreset === 'house' ? HOUSE_CURVE_OFFSETS[i] : 0.0;
+                const bandTarget = state.baseRefDb + curveOffset;
+                state.targetBandDb[i] = bandTarget;
+
+                // 편차 (Measured - Target)
+                const dev = sourceDbArray[i] - bandTarget;
+                state.deviationDb[i] = dev;
+
+                // 보정값 (Target - Measured) -> 0.5 dB 단위로 반올림 후 ±12 dB 클램핑
+                let rawCorr = bandTarget - sourceDbArray[i];
+                let steppedCorr = Math.round(rawCorr * 2) / 2;
+                steppedCorr = Math.max(-12.0, Math.min(12.0, steppedCorr));
+                state.correctionDb[i] = steppedCorr;
+
+                if (steppedCorr > 6.0 && sourceDbArray[i] > -85) {
+                    hasHighBoost = true;
+                }
+            }
+
+            // +6dB 이상 부스트 권고 시 안전 경고 배너 표시
+            if (hasHighBoost) {
+                el.boostWarningBanner.classList.remove('hidden');
+            } else {
+                el.boostWarningBanner.classList.add('hidden');
+            }
+        }
+
+        /**
+         * 선택된 밴드 상단 요약 배너 업데이트
+         */
+        function updateSelectedBandBanner() {
+            const idx = state.selectedBandIdx;
+            const activeData = state.isHolding ? state.heldBandDb : state.bandDb;
+            const freqStr = `${formatFreq(ISO_BANDS[idx])}Hz`;
+            const measStr = activeData[idx] <= -89 ? '--' : `${activeData[idx].toFixed(1)}dB`;
+            const corr = state.correctionDb[idx];
+            const sign = corr > 0 ? '+' : '';
+            const corrStr = `${sign}${corr.toFixed(1)}dB`;
+
+            el.selectedBandDetail.textContent = `${freqStr} • 측정: ${measStr} • DSP EQ: ${corrStr}`;
+        }
+
+        /**
+         * 캔버스 해상도(DPR) 및 크기 반응형 조정
+         */
+        function resizeCanvas() {
+            const rect = el.canvasWrapper.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            el.canvas.width = rect.width * dpr;
+            el.canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawRtaCanvas();
+        }
+
+        /**
+         * 15밴드 실시간 RTA 스펙트럼, 타겟 커브 및 보정 예측 커브 캔버스 렌더링
+         */
+        function drawRtaCanvas() {
+            const rect = el.canvasWrapper.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            // 배경 클리어
+            ctx.clearRect(0, 0, width, height);
+
+            const padLeft = 32;
+            const padRight = 12;
+            const padTop = 16;
+            const padBottom = 24;
+            const plotW = width - padLeft - padRight;
+            const plotH = height - padTop - padBottom;
+
+            // 표시할 dB 범위 (-90 dB ~ 0 dB)
+            const minDb = -90;
+            const maxDb = 0;
+            const dbRange = maxDb - minDb;
+
+            const dbToY = (db) => {
+                const clamped = Math.max(minDb, Math.min(maxDb, db));
+                return padTop + plotH * (1 - (clamped - minDb) / dbRange);
+            };
+
+            // 1. 가로 그리드 라인 및 dB 눈금 그리기
+            ctx.strokeStyle = '#1e2536';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            for (let db = 0; db >= -90; db -= 15) {
+                const y = dbToY(db);
+                ctx.beginPath();
+                ctx.moveTo(padLeft, y);
+                ctx.lineTo(width - padRight, y);
+                ctx.stroke();
+
+                ctx.fillText(`${db}`, padLeft - 5, y);
+            }
+
+            // 2. 15밴드 막대(Bar) 및 피크 홀드 틱 그리기
+            const activeData = state.isHolding ? state.heldBandDb : state.bandDb;
+            const barSlotW = plotW / NUM_BANDS;
+            const barW = Math.max(6, barSlotW * 0.62);
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const valDb = activeData[i];
+                const absDev = Math.abs(state.deviationDb[i]);
+                const x = padLeft + i * barSlotW + (barSlotW - barW) / 2;
+                const y = dbToY(valDb);
+                const barH = Math.max(2, (padTop + plotH) - y);
+
+                // 선택된 밴드 배경 하이라이트
+                if (i === state.selectedBandIdx) {
+                    ctx.fillStyle = 'rgba(6, 182, 212, 0.12)';
+                    ctx.fillRect(padLeft + i * barSlotW, padTop, barSlotW, plotH);
+                }
+
+                // 편차(Deviation) 크기에 따른 색상 코딩
+                // Green(±1.5dB 이내), Amber(±1.5~4dB), Red/Coral(±4dB 초과)
+                let barColor = '#10b981'; // Emerald 500 (양호)
+                if (absDev > 4.0) {
+                    barColor = '#f43f5e'; // Rose 500 (편차 큼)
+                } else if (absDev > 1.5) {
+                    barColor = '#f59e0b'; // Amber 500 (주의)
+                }
+
+                // 그라데이션 채우기
+                const grad = ctx.createLinearGradient(0, y, 0, padTop + plotH);
+                grad.addColorStop(0, barColor);
+                grad.addColorStop(1, 'rgba(15, 23, 42, 0.25)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+                ctx.fill();
+
+                // 선택된 막대 테두리 강조
+                if (i === state.selectedBandIdx) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                }
+
+                // 피크 홀드 틱(Peak Hold Tick) 그리기
+                const peakY = dbToY(state.peakHoldDb[i]);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(x, peakY, barW, 2);
+
+                // X축 주파수 라벨 표시 (15밴드는 간격이 넓어 전부 표시 가능, 짝수/홀수 크기 조정)
+                ctx.fillStyle = i === state.selectedBandIdx ? '#22d3ee' : '#94a3b8';
+                ctx.font = i === state.selectedBandIdx ? 'bold 9px "JetBrains Mono", monospace' : '9px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText(formatFreq(ISO_BANDS[i]), x + barW / 2, padTop + plotH + 6);
+            }
+
+            // 3. 보정 후 예상 응답 커브 (Correction Preview Line - 청록색 실선)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(34, 211, 238, 0.75)'; // Cyan 400
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const centerX = padLeft + (i + 0.5) * barSlotW;
+                const correctedDb = activeData[i] + state.correctionDb[i];
+                const cy = dbToY(correctedDb);
+                if (i === 0) ctx.moveTo(centerX, cy);
+                else ctx.lineTo(centerX, cy);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // 4. 타겟 커브 기준선 (Target Curve Line - 노란색 점선)
+            ctx.save();
+            ctx.strokeStyle = '#fbbf24'; // Amber 400
+            ctx.lineWidth = 1.8;
+            ctx.setLineDash([5, 4]);
+            ctx.beginPath();
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const centerX = padLeft + (i + 0.5) * barSlotW;
+                const ty = dbToY(state.targetBandDb[i]);
+                if (i === 0) ctx.moveTo(centerX, ty);
+                else ctx.lineTo(centerX, ty);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // HOLD 상태 표시 워터마크
+            if (state.isHolding) {
+                ctx.fillStyle = 'rgba(251, 191, 36, 0.12)';
+                ctx.fillRect(padLeft, padTop, plotW, plotH);
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 11px "JetBrains Mono", monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText('● HOLD LOCKED', width - padRight - 6, padTop + 12);
+            }
+        }
+
+        /**
+         * 15밴드 DSP 보정값 테이블 초기 DOM 생성
+         */
+        function initEqTable() {
+            el.eqTableBody.innerHTML = '';
+            ISO_BANDS.forEach((freq, idx) => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${idx}`;
+                tr.className = 'hover:bg-studio-800/60 transition-colors cursor-pointer';
+                tr.innerHTML = `
+                    <td class="py-2 px-2.5 font-bold text-slate-200">${formatFreq(freq)}Hz</td>
+                    <td id="meas-${idx}" class="py-2 px-2 text-right text-slate-400">--</td>
+                    <td id="dev-${idx}" class="py-2 px-2 text-right text-slate-400">0.0</td>
+                    <td id="corr-${idx}" class="py-2 px-2.5 text-right font-bold">
+                        <span class="px-1.5 py-0.5 rounded bg-studio-800 text-slate-300">0.0 dB</span>
+                    </td>
+                    <td class="py-2 px-2.5">
+                        <div class="w-full h-2 bg-studio-950 rounded-full overflow-hidden relative flex items-center">
+                            <div class="w-[1px] h-full bg-slate-600 mx-auto z-10"></div>
+                            <div id="bar-${idx}" class="h-full bg-cyan-500 absolute transition-all duration-100" style="left: 50%; width: 0%;"></div>
+                        </div>
+                    </td>
+                `;
+                // 테이블 행 터치 시 해당 주파수 밴드 하이라이트
+                tr.addEventListener('click', () => {
+                    selectBand(idx);
+                });
+                el.eqTableBody.appendChild(tr);
+            });
+            highlightSelectedRow();
+        }
+
+        /**
+         * 특정 주파수 밴드 선택 처리
+         */
+        function selectBand(idx) {
+            state.selectedBandIdx = Math.max(0, Math.min(NUM_BANDS - 1, idx));
+            highlightSelectedRow();
+            updateSelectedBandBanner();
+            drawRtaCanvas();
+        }
+
+        function highlightSelectedRow() {
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const row = document.getElementById(`row-${i}`);
+                if (!row) continue;
+                if (i === state.selectedBandIdx) {
+                    row.classList.add('bg-cyan-950/40');
+                } else {
+                    row.classList.remove('bg-cyan-950/40');
+                }
+            }
+        }
+
+        /**
+         * 15밴드 DSP 보정값 테이블 실시간 수치 업데이트
+         */
+        function updateEqTable() {
+            const activeData = state.isHolding ? state.heldBandDb : state.bandDb;
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const meas = activeData[i];
+                const dev = state.deviationDb[i];
+                const corr = state.correctionDb[i];
+
+                const measEl = document.getElementById(`meas-${i}`);
+                const devEl = document.getElementById(`dev-${i}`);
+                const corrEl = document.getElementById(`corr-${i}`);
+                const barEl = document.getElementById(`bar-${i}`);
+
+                measEl.textContent = meas <= -89 ? '--' : meas.toFixed(1);
+
+                const devSign = dev > 0.05 ? '+' : '';
+                devEl.textContent = meas <= -89 ? '--' : `${devSign}${dev.toFixed(1)}`;
+
+                const sign = corr > 0 ? '+' : '';
+                const formattedCorr = `${sign}${corr.toFixed(1)} dB`;
+
+                // 색상 배지 스타일 (+부스트: 파랑/시안, -컷: 오렌지/레드)
+                let badgeClass = 'px-1.5 py-0.5 rounded font-bold ';
+                if (corr < -0.1) {
+                    badgeClass += 'bg-rose-950/90 text-rose-400 border border-rose-500/30';
+                    barEl.className = 'h-full bg-rose-500 absolute transition-all duration-100';
+                } else if (corr > 0.1) {
+                    badgeClass += 'bg-cyan-950/90 text-cyan-300 border border-cyan-500/30';
+                    barEl.className = 'h-full bg-cyan-400 absolute transition-all duration-100';
+                } else {
+                    badgeClass += 'bg-studio-800 text-emerald-400';
+                    barEl.className = 'h-full bg-emerald-500 absolute transition-all duration-100';
+                }
+                corrEl.innerHTML = `<span class="${badgeClass}">${formattedCorr}</span>`;
+
+                // 중앙 기준 양방향 미니 게이지 바 계산 (최대 ±12dB 스케일)
+                const maxScale = 12;
+                const pct = Math.min(50, (Math.abs(corr) / maxScale) * 50);
+                if (corr >= 0) {
+                    barEl.style.left = '50%';
+                    barEl.style.width = `${pct}%`;
+                } else {
+                    barEl.style.left = `${50 - pct}%`;
+                    barEl.style.width = `${pct}%`;
+                }
+            }
+        }
+
+        /**
+         * Hold (측정값 고정) 토글
+         */
+        function toggleHold() {
+            state.isHolding = !state.isHolding;
+            if (state.isHolding) {
+                state.heldBandDb.set(state.bandDb);
+                el.btnHold.classList.remove('bg-studio-800', 'text-slate-300', 'border-studio-700');
+                el.btnHold.classList.add('bg-amber-500', 'text-slate-950', 'border-amber-400');
+                el.textHold.textContent = 'HELD';
+                showToast('현재 측정 스펙트럼 고정됨 (HOLD)');
+            } else {
+                el.btnHold.classList.remove('bg-amber-500', 'text-slate-950', 'border-amber-400');
+                el.btnHold.classList.add('bg-studio-800', 'text-slate-300', 'border-studio-700');
+                el.textHold.textContent = 'HOLD';
+                showToast('실시간 측정 재개');
+            }
+            calculateDspCorrections(state.isHolding ? state.heldBandDb : state.bandDb);
+            drawRtaCanvas();
+            updateEqTable();
+        }
+
+        /**
+         * 보정값 텍스트 생성 및 클립보드 복사 (iFrame 호환 execCommand 방식 적용)
+         */
+        function copyResultsToClipboard() {
+            const activeData = state.isHolding ? state.heldBandDb : state.bandDb;
+            const curveName = state.targetCurvePreset === 'house' ? 'Car/House Curve' : 'Flat';
+            let lines = [
+                `[15-Band RTA & DSP EQ 보정값]`,
+                `타겟 커브: ${curveName} | 기준: ${state.baseRefDb.toFixed(1)} dB`,
+                `----------------------------------------`,
+                `주파수(Hz)\t측정(dB)\t편차(dB)\tDSP EQ(dB)`
+            ];
+
+            ISO_BANDS.forEach((freq, i) => {
+                const corr = state.correctionDb[i];
+                const dev = state.deviationDb[i];
+                const corrSign = corr > 0 ? '+' : '';
+                const devSign = dev > 0 ? '+' : '';
+                lines.push(`${formatFreq(freq)}Hz\t${activeData[i].toFixed(1)}\t${devSign}${dev.toFixed(1)}\t${corrSign}${corr.toFixed(1)}`);
+            });
+
+            const text = lines.join('\n');
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast('15밴드 DSP 보정값이 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showAlert('복사 실패', '클립보드 복사 중 오류가 발생했습니다.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        /**
+         * CSV 파일 생성 및 다운로드
+         */
+        function downloadCsv() {
+            const activeData = state.isHolding ? state.heldBandDb : state.bandDb;
+            let csvContent = "Band,Frequency_Hz,Measured_dB,Target_dB,Deviation_dB,DSP_EQ_Correction_dB\n";
+
+            ISO_BANDS.forEach((freq, i) => {
+                const meas = activeData[i].toFixed(2);
+                const targ = state.targetBandDb[i].toFixed(2);
+                const dev = state.deviationDb[i].toFixed(2);
+                const corr = state.correctionDb[i].toFixed(1);
+                csvContent += `${i + 1},${freq},${meas},${targ},${dev},${corr}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `DSP_15Band_EQ_${timestamp}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('15밴드 CSV 파일 다운로드 시작');
+        }
+
+        // ============================================================================
+        // 이벤트 리스너 바인딩
+        // ============================================================================
+        el.btnMic.addEventListener('click', toggleMicrophone);
+        el.btnHold.addEventListener('click', toggleHold);
+        el.btnPinkNoise.addEventListener('click', togglePinkNoise);
+        el.btnCopy.addEventListener('click', copyResultsToClipboard);
+        el.btnCsv.addEventListener('click', downloadCsv);
+
+        // 캔버스 터치/클릭으로 주파수 막대 선택
+        function handleCanvasPointer(clientX) {
+            const rect = el.canvasWrapper.getBoundingClientRect();
+            const padLeft = 32;
+            const padRight = 12;
+            const plotW = rect.width - padLeft - padRight;
+            const relX = clientX - rect.left - padLeft;
+            if (relX >= 0 && relX <= plotW) {
+                const idx = Math.floor((relX / plotW) * NUM_BANDS);
+                selectBand(idx);
+            }
+        }
+
+        el.canvasWrapper.addEventListener('click', (e) => {
+            handleCanvasPointer(e.clientX);
+        });
+        el.canvasWrapper.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                handleCanvasPointer(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        // 응답 속도 모드 선택 이벤트 (Fast / Slow / Infinite Avg)
+        document.querySelectorAll('.smooth-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.smooth-btn').forEach(b => {
+                    b.classList.remove('bg-studio-700', 'text-cyan-400', 'font-bold');
+                    b.classList.add('text-slate-400');
+                });
+                e.target.classList.remove('text-slate-400');
+                e.target.classList.add('bg-studio-700', 'text-cyan-400', 'font-bold');
+                
+                const mode = e.target.dataset.mode;
+                state.responseMode = mode;
+                if (mode === 'fast') {
+                    state.smoothingTimeConstant = 0.45;
+                } else if (mode === 'slow') {
+                    state.smoothingTimeConstant = 0.85;
+                } else if (mode === 'avg') {
+                    state.avgSampleCount = 0; // 무한 평균 카운터 초기화
+                    showToast('무한 시간 평균(Infinite Avg) 모드 시작');
+                }
+            });
+        });
+
+        // 타겟 커브 프리셋 변경 이벤트
+        el.targetCurveSelect.addEventListener('change', (e) => {
+            state.targetCurvePreset = e.target.value;
+            calculateDspCorrections(state.isHolding ? state.heldBandDb : state.bandDb);
+            drawRtaCanvas();
+            updateEqTable();
+            updateSelectedBandBanner();
+        });
+
+        // 스마트폰 마이크 저역 보정 토글 이벤트
+        el.btnMicComp.addEventListener('click', () => {
+            state.micLowEndComp = !state.micLowEndComp;
+            if (state.micLowEndComp) {
+                el.btnMicComp.classList.add('border-cyan-500/60', 'bg-cyan-950/30');
+                el.micCompBadge.textContent = 'ON';
+                el.micCompBadge.classList.remove('bg-studio-800', 'text-slate-400');
+                el.micCompBadge.classList.add('bg-cyan-600', 'text-white');
+                showToast('마이크 저역(80Hz 이하) 롤오프 보정 활성화');
+            } else {
+                el.btnMicComp.classList.remove('border-cyan-500/60', 'bg-cyan-950/30');
+                el.micCompBadge.textContent = 'OFF';
+                el.micCompBadge.classList.remove('bg-cyan-600', 'text-white');
+                el.micCompBadge.classList.add('bg-studio-800', 'text-slate-400');
+                showToast('마이크 저역 보정 해제');
+            }
+        });
+
+        // 타겟 기준선 오프셋 슬라이더 이벤트
+        el.targetOffsetSlider.addEventListener('input', (e) => {
+            state.targetOffsetDb = parseFloat(e.target.value);
+            const sign = state.targetOffsetDb > 0 ? '+' : '';
+            el.targetOffsetVal.textContent = `${sign}${state.targetOffsetDb.toFixed(1)} dB`;
+            calculateDspCorrections(state.isHolding ? state.heldBandDb : state.bandDb);
+            drawRtaCanvas();
+            updateEqTable();
+            updateSelectedBandBanner();
+        });
+
+        el.btnResetOffset.addEventListener('click', () => {
+            state.targetOffsetDb = 0.0;
+            el.targetOffsetSlider.value = 0;
+            el.targetOffsetVal.textContent = '0.0 dB';
+            calculateDspCorrections(state.isHolding ? state.heldBandDb : state.bandDb);
+            drawRtaCanvas();
+            updateEqTable();
+            updateSelectedBandBanner();
+        });
+
+        // 핑크 노이즈 게인 슬라이더 이벤트
+        el.pinkGainSlider.addEventListener('input', (e) => {
+            state.pinkGainDb = parseFloat(e.target.value);
+            el.pinkGainVal.textContent = `${state.pinkGainDb} dB`;
+            if (pinkGainNode && audioCtx) {
+                pinkGainNode.gain.setTargetAtTime(Math.pow(10, state.pinkGainDb / 20), audioCtx.currentTime, 0.02);
+            }
+        });
+
+        // 측정값 초기화 버튼
+        el.btnResetPeak.addEventListener('click', () => {
+            state.bandDb.fill(-90);
+            state.peakHoldDb.fill(-90);
+            state.heldBandDb.fill(-90);
+            state.correctionDb.fill(0);
+            state.deviationDb.fill(0);
+            state.avgSampleCount = 0;
+            if (state.isHolding) toggleHold();
+            drawRtaCanvas();
+            updateEqTable();
+            updateSelectedBandBanner();
+            showToast('측정 및 평균 데이터가 초기화되었습니다');
+        });
+
+        // 초기화 실행
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('DOMContentLoaded', () => {
+            initEqTable();
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>

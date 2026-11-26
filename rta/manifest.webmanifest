@@ -1,0 +1,21 @@
+{
+  "name": "15-Band RTA & DSP EQ 보정기",
+  "short_name": "RTA EQ",
+  "description": "15밴드 실시간 스펙트럼 분석과 DSP EQ 보정을 한 화면에서 쓰는 사운드 보정 도구",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/PICKEL/rta/",
+  "scope": "/PICKEL/rta/",
+  "id": "/PICKEL/rta/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#090b10",
+  "theme_color": "#090b10",
+  "categories": ["utilities", "music"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
