@@ -246,7 +246,7 @@
             <div class="flex items-center justify-between mb-2.5">
                 <div>
                     <h2 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">15-Band DSP EQ 보정값 (0.5dB Step)</h2>
-                    <p class="text-[11px] text-slate-400">중음역(100Hz~6.3kHz) 기준 산출 • <span class="text-cyan-400">+부스트</span> / <span class="text-rose-400">-컷</span></p>
+                    <p class="text-[11px] text-slate-400">중음역(125Hz~5kHz) 기준 산출 • <span class="text-cyan-400">+부스트</span> / <span class="text-rose-400">-컷</span></p>
                 </div>
                 <span class="px-2 py-0.5 rounded bg-studio-950 border border-studio-800 text-[10px] font-mono text-slate-400">±12.0 dB MAX</span>
             </div>
@@ -284,24 +284,24 @@
          * ============================================================================
          */
 
-        // 1. ISO 표준 15밴드 중심 주파수 배열 (25Hz ~ 16kHz, 2/3 옥타브 간격)
+        // 1. JBL CS760C 2웨이(우퍼 미장착) 맞춤형 15밴드 중심 주파수 배열 (50Hz ~ 12.5kHz)
         const ISO_BANDS = [
-            25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000
+            50, 63, 80, 100, 125, 160, 200, 315, 500, 800, 1250, 2000, 3150, 5000, 12500
         ];
         const NUM_BANDS = ISO_BANDS.length; // 15
 
         // 2/3 옥타브 대역폭 승수: 2^(1/3) ≈ 1.25992105
         const OCTAVE_FACTOR = Math.pow(2, 1 / 3);
 
-        // Car Audio / House Curve 타겟 오프셋 (15밴드별 dB)
-        // 저역(25~100Hz) 부드러운 부스트(+3dB -> 0dB), 고역(4k~16kHz) 자연스러운 롤오프(-0.5dB -> -2.0dB)
+        // JBL CS760C + 차내 하우스 커브 타겟 오프셋 (15밴드별 dB)
+        // 저역(50~100Hz) 부드러운 부스트(+2.5dB -> 0dB), 고역(3.15k~12.5kHz) 자연스러운 롤오프(-0.5dB -> -2.0dB)
         const HOUSE_CURVE_OFFSETS = [
-            3.0, 3.0, 2.5, 1.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, -1.0, -1.5, -2.0
+            2.5, 2.0, 1.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, -1.0, -2.0
         ];
 
         // 안드로이드 일반 MEMS 마이크 저역 롤오프 보상치 (80Hz 이하 보상)
         const MIC_LOW_END_COMP = [
-            4.5, 3.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         ];
 
         // 전역 상태 객체
@@ -318,7 +318,7 @@
             pinkGainDb: -12,             // 핑크 노이즈 출력 게인 (dB)
             fftSize: 16384,              // 저주파수 해상도 확보를 위한 16384 FFT
             sampleRate: 48000,
-            selectedBandIdx: 8,          // 기본 선택 밴드 (1kHz)
+            selectedBandIdx: 8,          // 기본 선택 밴드 (500Hz)
             
             // 측정 및 계산 데이터 배열 (15밴드)
             bandDb: new Float32Array(NUM_BANDS).fill(-90),       // 현재 측정/평균 dB
@@ -701,13 +701,13 @@
 
         /**
          * 기준 타겟 레벨 및 각 밴드별 DSP 보정값 산출
-         * 중음역대 (100Hz ~ 6.3kHz, 인덱스 3 ~ 12)의 평균을 0dB 기준선으로 설정
+         * 중음역대 (125Hz ~ 5kHz, 인덱스 4 ~ 13)의 평균을 0dB 기준선으로 설정
          */
         function calculateDspCorrections(sourceDbArray) {
             let sum = 0;
             let count = 0;
-            // 인덱스 3(100Hz) ~ 인덱스 12(6300Hz)
-            for (let i = 3; i <= 12; i++) {
+            // 인덱스 4(125Hz) ~ 인덱스 13(5000Hz)
+            for (let i = 4; i <= 13; i++) {
                 if (sourceDbArray[i] > -85) {
                     sum += sourceDbArray[i];
                     count++;
