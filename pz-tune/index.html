@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PZ-Tune">
+<title>PZ-Tune — 차량 DSP EQ 측정기</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  --bg:#0a0d10;
+  --panel:#12181f;
+  --panel2:#0e1319;
+  --line:#232c36;
+  --amber:#f5a83c;
+  --amber-dim:#8a6224;
+  --cyan:#55d6c9;
+  --red:#e86060;
+  --green:#7ec96b;
+  --text:#e8e4da;
+  --text-dim:#8b95a1;
+  --mono:ui-monospace,'SF Mono','JetBrains Mono','Cascadia Mono',Consolas,monospace;
+  --display:'Avenir Next Condensed','Arial Narrow','Noto Sans KR',sans-serif;
+  --body:'Noto Sans KR','Apple SD Gothic Neo',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--body);
+  font-size:15px;line-height:1.5;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  user-select:none;-webkit-user-select:none;
+}
+#app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 10px;border-bottom:1px solid var(--line);
+}
+.brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.14em;color:var(--amber);text-transform:uppercase}
+.brand small{color:var(--text-dim);font-weight:400;letter-spacing:.08em;font-size:11px;display:block;margin-top:-2px}
+.micchip{
+  font-family:var(--mono);font-size:11px;padding:5px 10px;border:1px solid var(--line);
+  border-radius:99px;color:var(--text-dim);display:flex;align-items:center;gap:6px;background:var(--panel2);
+}
+.micchip .dot{width:8px;height:8px;border-radius:50%;background:#3a4450}
+.micchip.on{color:var(--cyan);border-color:var(--cyan)}
+.micchip.on .dot{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+
+/* ---------- tabs ---------- */
+nav{display:flex;border-bottom:1px solid var(--line);background:var(--panel2)}
+nav button{
+  flex:1;background:none;border:none;color:var(--text-dim);font-family:var(--body);
+  font-size:14px;font-weight:600;padding:12px 0;cursor:pointer;border-bottom:2px solid transparent;
+}
+nav button.act{color:var(--amber);border-bottom-color:var(--amber)}
+main{flex:1;padding:16px 16px 32px}
+
+/* ---------- generic panel ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.18em;color:var(--text-dim);
+  text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;
+}
+.panel h2 .val{color:var(--cyan);letter-spacing:.05em}
+
+/* ---------- RTA canvas ---------- */
+.rta-wrap{position:relative;background:#05070a;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+canvas{display:block;width:100%;height:230px}
+.rta-scale{
+  position:absolute;top:6px;left:8px;font-family:var(--mono);font-size:10px;color:#3d4a58;
+}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--body);font-weight:700;font-size:15px;color:var(--text);
+  background:#1a222c;border:1px solid var(--line);border-radius:10px;
+  padding:13px 18px;cursor:pointer;transition:transform .06s,background .15s;
+}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#181205}
+.btn.primary:disabled{background:#5a4a28;border-color:#5a4a28;color:#a2906c}
+.btn.stop{background:var(--red);border-color:var(--red);color:#1b0808}
+.btn.ghost{background:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px}
+.row .btn{flex:1}
+
+/* ---------- volume slider ---------- */
+.vol{display:flex;align-items:center;gap:12px}
+.vol input[type=range]{flex:1;accent-color:var(--amber);height:34px}
+.vol .db{font-family:var(--mono);font-size:13px;color:var(--amber);width:74px;text-align:right}
+
+/* ---------- position tabs ---------- */
+.pos{display:flex;gap:8px}
+.pos button{
+  flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text-dim);
+  font-family:var(--body);font-size:13px;font-weight:600;padding:10px 4px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.pos button small{font-family:var(--mono);font-size:10px;font-weight:400}
+.pos button.act{color:var(--amber);border-color:var(--amber);background:#1c1710}
+.pos button.saved{color:var(--cyan)}
+.pos button.saved.act{color:var(--amber)}
+
+/* ---------- status line ---------- */
+.status{
+  font-family:var(--mono);font-size:12px;color:var(--text-dim);
+  padding:10px 14px;border:1px dashed var(--line);border-radius:9px;margin-bottom:14px;
+  min-height:41px;display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.status.run{color:var(--cyan);border-color:var(--cyan)}
+.status.warn{color:var(--red);border-color:var(--red)}
+
+/* ---------- results table ---------- */
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+th{color:var(--text-dim);font-weight:600;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+   padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 4px;border-bottom:1px solid #1a2129;text-align:right;color:var(--text)}
+td.dev-pos{color:var(--red)}
+td.dev-neg{color:#6f9fe8}
+td.gain{color:var(--amber);font-weight:700}
+tr.best td{background:#131a12}
+
+/* ---------- band editor ---------- */
+.bandrow{display:grid;grid-template-columns:34px 1fr 76px 54px;gap:8px;align-items:center;margin-bottom:6px}
+.bandrow .n{font-family:var(--mono);font-size:11px;color:var(--text-dim);text-align:center}
+.bandrow input[type=number]{
+  width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--text);
+  font-family:var(--mono);font-size:12px;padding:8px 4px;text-align:right;-moz-appearance:textfield;
+}
+.bandrow input[type=number]::-webkit-inner-spin-button{display:none}
+.bandrow input:focus{outline:none;border-color:var(--amber)}
+.bandrow .hz{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+
+/* ---------- compare bars ---------- */
+.cmprow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.cmprow .f{font-family:var(--mono);font-size:11px;color:var(--text-dim);width:52px;text-align:right}
+.cmprow .track{flex:1;height:16px;background:#05070a;border-radius:4px;position:relative;overflow:hidden}
+.cmprow .l{position:absolute;top:0;bottom:0;left:50%;background:var(--cyan);opacity:.85}
+.cmprow .r{position:absolute;top:0;bottom:0;left:50%;background:var(--amber);opacity:.85}
+.cmprow .d{font-family:var(--mono);font-size:11px;width:56px}
+.legend{display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+/* ---------- guide ---------- */
+.guide{font-size:13px;color:var(--text-dim)}
+.guide li{margin-left:18px;margin-bottom:6px}
+.guide b{color:var(--text)}
+.guide .warn{color:var(--amber)}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1e2833;color:var(--text);border:1px solid var(--line);border-radius:99px;
+  padding:10px 20px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:99;white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.hidden{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">PZ·TUNE<small>EQ BAND CHECKER</small></div>
+    <div class="micchip" id="micChip"><span class="dot"></span><span id="micLabel">MIC OFF</span></div>
+  </header>
+
+  <nav>
+    <button data-tab="measure" class="act">측정</button>
+    <button data-tab="result">결과</button>
+    <button data-tab="bands">밴드 설정</button>
+    <button data-tab="guide">사용법</button>
+  </nav>
+
+  <main>
+
+  <!-- ================= MEASURE ================= -->
+  <section id="tab-measure">
+    <div class="status" id="status">핑크노이즈를 틀고 마이크를 연결한 뒤 측정을 시작하세요</div>
+
+    <div class="panel">
+      <h2>REAL TIME ANALYZER · 15 BAND <span class="val" id="rtaMeta">— dB</span></h2>
+      <div class="rta-wrap">
+        <canvas id="rta" width="600" height="460"></canvas>
+        <div class="rta-scale">0 dB&nbsp;= 평균 기준</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>PINK NOISE <span class="val" id="noiseMeta">STOPPED</span></h2>
+      <div class="vol">
+        <button class="btn primary" id="noiseBtn" style="min-width:118px">▶ 재생</button>
+        <input type="range" id="vol" min="0" max="100" value="35">
+        <span class="db" id="volDb">−26 dBFS</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>MEASURE POSITION</h2>
+      <div class="pos" id="posTabs">
+        <button data-pos="L" class="act">좌석 (L)<small id="savedL">미측정</small></button>
+        <button data-pos="R">좌석 (R)<small id="savedR">미측정</small></button>
+        <button data-pos="C">센터<small id="savedC">미측정</small></button>
+      </div>
+      <div style="height:12px"></div>
+      <div class="row">
+        <button class="btn wide primary" id="measBtn" disabled>측정 시작 (5초)</button>
+      </div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <button class="btn ghost" id="resetPosBtn">이 좌석 지우기</button>
+        <button class="btn ghost" id="resetAllBtn">전체 초기화</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULT ================= -->
+  <section id="tab-result" class="hidden">
+    <div class="panel">
+      <h2>이상적 EQ 게인 제안 <span class="val" id="resultMeta">데이터 없음</span></h2>
+      <div id="resultBody">
+        <div class="status">아직 측정 데이터가 없습니다.<br>측정 탭에서 좌석·우석·센터를 측정해 저장하세요.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="cmpPanel">
+      <h2>좌우 밸런스 (L vs R)</h2>
+      <div id="cmpBody"></div>
+      <div class="legend">
+        <span><i style="background:var(--cyan)"></i>좌석</span>
+        <span><i style="background:var(--amber)"></i>우석</span>
+        <span style="margin-left:auto">막대 = 좌우 레벨차</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>내보내기</h2>
+      <div class="row">
+        <button class="btn" id="exportJson">JSON 저장</button>
+        <button class="btn" id="copyTable">PUZU용 표 복사</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="btn ghost wide" id="loadDemo">데모 데이터로 미리보기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BANDS ================= -->
+  <section id="tab-bands" class="hidden">
+    <div class="panel">
+      <h2>15 BAND CENTER FREQUENCY</h2>
+      <p style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">
+        PUZU PZ-C7 소프트웨어의 EQ 밴드 주파수와 <b style="color:var(--text)">똑같이</b> 입력하세요.
+        측정은 각 밴드 중심 주파수 ±¼ 옥타브 구간의 에너지를 합산합니다.
+      </p>
+      <div id="bandList"></div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="btn" id="preset60">60Hz 하방 그리드</button>
+        <button class="btn" id="presetPz">PUZU C7 기본</button>
+        <button class="btn" id="presetStd">1/3옥타브</button>
+      </div>
+      <div style="height:8px"></div>
+      <p style="font-size:12px;color:var(--text-dim)">
+        <b style="color:var(--text)">60Hz 하방 그리드</b> — 스피커 하방 60Hz 기준, 60Hz~20kHz를 ×1.5 로그 간격으로 배치
+        (60·90·140·210·315·480·725·1100·1650·2500·3800·5800·8800·13300·20000).
+        <b style="color:var(--text)">1/3옥타브</b> — ISO 표준 측정 그리드. PUZU 소프트웨어에 주파수 입력란이 없다면
+        소프트웨어에 표시되는 값 그대로 입력하세요.
+      </p>
+    </div>
+    <div class="panel">
+      <h2>MEASUREMENT OPTIONS</h2>
+      <div class="bandrow">
+        <span class="n">측정</span><input type="range" id="optDur" min="3" max="15" step="1" value="5" style="grid-column:2/4">
+        <span class="hz"><span id="optDurVal">5</span>초</span>
+      </div>
+      <div class="bandrow">
+        <span class="n">타깃</span><input type="range" id="optTilt" min="-3" max="3" step="0.5" value="0" style="grid-column:2/4">
+        <span class="hz" style="white-space:nowrap"><span id="optTiltVal">0</span> dB/옥타브</span>
+      </div>
+      <p style="font-size:12px;color:var(--text-dim)">
+        타깃 기울기: 고음이 부족하게 들리면 −0.5~−1, 저음을 세우고 싶으면 0~+1에서 시작.
+        핑크노이즈는 원래 옥타브당 에너지가 같으므로 기본값 0이 평탄한 음향입니다.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= GUIDE ================= -->
+  <section id="tab-guide" class="hidden">
+    <div class="panel guide">
+      <h2 style="margin-bottom:12px">측정 순서</h2>
+      <ol>
+        <li><b>조용한 환경</b> — 시동 끈 상태(또는 EV는 대기모드), 에어컨·공회전 소음 최소. 창문 닫기.</li>
+        <li><b>DSP 세팅 준비</b> — PUZU 소프트웨어에서 EQ 게인을 전부 <b>0 dB</b>로 만들고 시작하면 측정이 가장 정확합니다. (이미 세팅한 값 검증이라면 그대로 둬도 됩니다 — 그때는 "현재 세팅 검증" 모드로 해석하세요)</li>
+        <li><b>볼륨 고정</b> — 핑크노이즈를 틀고 헤드 볼륨을 <span class="warn">75~80 dB 정도</span>(시끄럽지만 불편하지 않은 수준)로 맞춘 뒤 <b>절대 만지지 마세요</b>. 측정 내내 같은 볼륨이어야 합니다.</li>
+        <li><b>폰 위치</b> — 마이크를 귀 위치(헤드레스트 높이)로 들고, 화면이 차 안쪽을 향하게. 좌석 측정 중엔 가만히 잠자코.</li>
+        <li><b>좌석 → 우석 → 센터</b> 순서로 각각 측정·저장. 센터는 좌석 사이, 콘솔 위 높이로.</li>
+        <li><b>결과 탭</b>에서 제안된 게인값을 PUZU 소프트웨어에 입력하고, 다시 측정해 확인합니다.</li>
+      </ol>
+    </div>
+    <div class="panel guide">
+      <h2 style="margin-bottom:12px">측정값을 읽는 법</h2>
+      <ul>
+        <li><b>±2 dB 이내</b> — 잘 세팅된 상태입니다. 그대로 두세요.</li>
+        <li><b>빨간 밴드(뜨거움)</b> — 게인을 내리세요. 부스트보다 컷이 안전합니다.</li>
+        <li><b>파란 밴드(부족함)</b> — 소폭(+2~3 dB) 부스트. 저음 밴드는 차실 보정이 커서 과부스트 주의.</li>
+        <li><b>좌우 밸런스</b> — 좌우 차이가 밴드당 2 dB 이상이면 이퀄라이저보다 <b>타임 얼라인/레벨 매칭</b>으로 먼저 맞추는 게 맞습니다.</li>
+        <li>휴대폰 마이크는 절대값이 부정확합니다 — 이 앱은 <b>밴드 간 상대 차이</b>를 보정하는 도구이며, 100 Hz 이하와 12 kHz 이상은 마이크 특성상 참고만 하세요.</li>
+      </ul>
+    </div>
+    <div class="panel guide">
+      <h2 style="margin-bottom:12px">핸드폰에 앱처럼 설치</h2>
+      <ul>
+        <li><b>갤럭시/크롬</b> — GitHub Pages 주소 접속 → 브라우저 메뉴 → "앱 설치"</li>
+        <li><b>아이폰/사파리</b> — 주소 접속 → 공유 버튼 → "홈 화면에 추가"</li>
+        <li>한 번 열면 오프라인에서도 동작합니다(서비스 워커 캐시).</li>
+      </ul>
+      <p style="margin-top:8px">마이크 권한은 설치 후 첫 측정 때 묻습니다 — "허용"을 눌러주세요.</p>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   PZ·TUNE — car DSP EQ band checker
+   pink noise gen + phone-mic 15-band RTA + suggested EQ gains
+   ============================================================ */
+'use strict';
+
+/* ---------- band defaults ---------- */
+const PRESET_PZ  = [31.5,63,100,160,250,400,630,1000,1600,2500,4000,6300,10000,14000,18000];
+const PRESET_STD = [31.5,63,100,125,160,200,250,315,400,500,630,800,1000,1250,1600];
+/* JBL CS760C 하방 60Hz → 20kHz, 로그(×1.5, 약 0.58옥타브) 균등 배치 */
+const PRESET_60  = [60,90,140,210,315,480,725,1100,1650,2500,3800,5800,8800,13300,20000];
+let bands = load('pzt_bands', PRESET_60.slice());
+let optDur  = load('pzt_dur', 5);
+let optTilt = load('pzt_tilt', 0);
+let curPos  = 'L';
+let meas    = load('pzt_meas', {});   // {L:[..15], R:[..], C:[..]}  relative dB
+let measAbs = load('pzt_abs', {});    // raw (uncalibrated) dB per position
+
+/* ---------- helpers ---------- */
+function load(k,d){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):d;}catch(e){return d;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+function $(id){ return document.getElementById(id); }
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function fLabel(f){ return f>=1000 ? (f/1000).toFixed(f%1000?1:0)+'k' : String(f); }
+function round05(x){ return Math.round(x*2)/2; }
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+function median(arr){ const a=[...arr].sort((x,y)=>x-y); const m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+
+/* ============================================================
+   AUDIO — pink noise generator (Paul Kellet economy filter)
+   ============================================================ */
+let ac=null, noiseSrc=null, noiseGain=null, noiseOn=false;
+function audioCtx(){
+  if(!ac) ac=new (window.AudioContext||window.webkitAudioContext)();
+  if(ac.state==='suspended') ac.resume();
+  return ac;
+}
+function makePinkBuffer(ctx,seconds){
+  const len=ctx.sampleRate*seconds;
+  const buf=ctx.createBuffer(2,len,ctx.sampleRate);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(let i=0;i<len;i++){
+      const w=Math.random()*2-1;
+      b0=0.99886*b0+w*0.0555179;
+      b1=0.99332*b1+w*0.0750759;
+      b2=0.96900*b2+w*0.1538520;
+      b3=0.86650*b3+w*0.3104856;
+      b4=0.55000*b4+w*0.5329522;
+      b5=-0.7616*b5-w*0.0168980;
+      d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
+      b6=w*0.115926;
+    }
+  }
+  return buf;
+}
+function setNoiseGain(){
+  const v=Math.pow($('vol').value/100,2);          // perceptual
+  const dbfs=20*Math.log10(Math.max(v*0.9,1e-4));
+  $('volDb').textContent=(dbfs<=-99?'−∞':dbfs.toFixed(0))+' dBFS';
+  if(!noiseGain) return;
+  noiseGain.gain.setTargetAtTime(v*0.9, ac.currentTime, 0.03);
+}
+function startNoise(){
+  const ctx=audioCtx();
+  noiseSrc=ctx.createBufferSource();
+  noiseSrc.buffer=makePinkBuffer(ctx,8);
+  noiseSrc.loop=true;
+  noiseGain=ctx.createGain();
+  noiseSrc.connect(noiseGain).connect(ctx.destination);
+  setNoiseGain();
+  noiseSrc.start();
+  noiseOn=true;
+  $('noiseBtn').textContent='■ 정지';
+  $('noiseBtn').classList.remove('primary'); $('noiseBtn').classList.add('stop');
+  $('noiseMeta').textContent='PLAYING';
+}
+function stopNoise(){
+  if(noiseSrc){ try{noiseSrc.stop();}catch(e){} noiseSrc=null; }
+  noiseOn=false;
+  $('noiseBtn').textContent='▶ 재생';
+  $('noiseBtn').classList.add('primary'); $('noiseBtn').classList.remove('stop');
+  $('noiseMeta').textContent='STOPPED';
+}
+
+/* ============================================================
+   MIC — analyser
+   ============================================================ */
+let stream=null, analyser=null, fftData=null, micOn=false;
+const FFT=8192;
+async function startMic(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    status('이 환경에서는 마이크를 쓸 수 없습니다.<br><b>HTTPS 주소(GitHub Pages)</b>로 접속했는지 확인하세요. 주소창이 <b>file://</b> 또는 <b>http://</b> 이면 마이크가 차단됩니다.','warn');
+    return false;
+  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+    });
+  }catch(e){
+    const n=e&&e.name||'';
+    if(n==='NotAllowedError'||n==='SecurityError'){
+      status('마이크 권한이 <b>거부</b> 상태입니다.<br>브라우저 주소창 왼쪽 자물쇠 아이콘 → 권한 → 마이크 <b>허용</b>으로 바꾼 뒤 다시 시도하세요.','warn');
+    }else if(n==='NotFoundError'||n==='DevicesNotFoundError'){
+      status('마이크를 찾지 못했습니다. 다른 앱(통화·녹음)이 마이크를 점유 중이면 종료한 뒤 다시 시도하세요.','warn');
+    }else if(n==='NotReadableError'||n==='TrackStartError'){
+      status('마이크가 다른 앱에 잠겨 있습니다. 카톡 통화·녹음 앱·내비게이션 등을 완전히 종료하고 재시도하세요.','warn');
+    }else{
+      status('마이크 시작 실패 ('+n+')<br>페이지를 새로고침한 뒤 다시 시도하세요.','warn');
+    }
+    return false;
+  }
+  const ctx=audioCtx();
+  const src=ctx.createMediaStreamSource(stream);
+  analyser=ctx.createAnalyser();
+  analyser.fftSize=FFT;
+  analyser.smoothingTimeConstant=0;
+  src.connect(analyser);
+  fftData=new Float32Array(analyser.frequencyBinCount);
+  micOn=true;
+  $('micChip').classList.add('on'); $('micLabel').textContent='MIC ON';
+  $('measBtn').disabled=false;
+  status('마이크 연결됨 · 핑크노이즈를 틀고 볼륨을 고정한 뒤 측정하세요');
+  return true;
+}
+function stopMic(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  micOn=false;
+  $('micChip').classList.remove('on'); $('micLabel').textContent='MIC OFF';
+  $('measBtn').disabled=true;
+}
+
+/* band power over ±1/4 octave around center freq */
+function bandLevels(){
+  const sr=ac.sampleRate, nyq=sr/2, binHz=sr/FFT;
+  analyser.getFloatFrequencyData(fftData);
+  const out=new Array(15);
+  for(let i=0;i<15;i++){
+    const c=bands[i];
+    const lo=c*Math.pow(2,-0.25), hi=c*Math.pow(2,0.25);
+    const i0=Math.max(1,Math.ceil(lo/binHz));
+    const i1=Math.min(Math.floor(nyq/binHz)-1, Math.floor(hi/binHz));
+    let p=0,n=0;
+    for(let k=i0;k<=i1;k++){
+      const db=fftData[k];
+      if(db>-120) p+=Math.pow(10,db/10);
+      n++;
+    }
+    out[i]=(n>0 && p>0)?10*Math.log10(p/n):-120;
+  }
+  return out;
+}
+
+/* ============================================================
+   MEASUREMENT
+   ============================================================ */
+let measuring=false, rafLive=null, liveLevels=null;
+function status(msg,cls){
+  const s=$('status');
+  s.innerHTML=msg;
+  s.className='status'+(cls?' '+cls:'');
+}
+async function measure(){
+  if(measuring) return;
+  if(!micOn){ if(!await startMic()) return; }
+  if(!noiseOn) startNoise();
+  measuring=true;
+  $('measBtn').disabled=true;
+  const DUR=optDur;
+  // countdown
+  for(let c=3;c>=1;c--){
+    status('측정 시작까지 <b style="font-size:18px">'+c+'</b>초 — 폰을 귀 위치에 고정하세요','run');
+    await sleep(1000);
+  }
+  const frames=[];
+  const t0=performance.now();
+  let left=DUR;
+  while((performance.now()-t0)/1000<DUR){
+    liveLevels=bandLevels();
+    frames.push(liveLevels);
+    drawRTA(liveLevels,null);
+    const rem=DUR-(performance.now()-t0)/1000;
+    if(left-rem>=1){ left=Math.floor(rem); status('측정 중… <b>'+Math.ceil(rem)+'</b>초 남음 (움직이지 마세요)','run'); }
+    await sleep(120);
+  }
+  // median per band
+  const rel=new Array(15), abs=new Array(15);
+  let sum=0;
+  for(let i=0;i<15;i++){
+    abs[i]=median(frames.map(f=>f[i]));
+  }
+  const mean=abs.reduce((a,b)=>a+b,0)/15;
+  const tiltDB=optTilt; // dB per octave
+  for(let i=0;i<15;i++){
+    const oct=Math.log2(bands[i]/1000);
+    const target=mean+tiltDB*oct;
+    rel[i]=abs[i]-target;
+  }
+  meas[curPos]=rel.map(round05);
+  measAbs[curPos]=abs.map(x=>x.toFixed(1));
+  save('pzt_meas',meas); save('pzt_abs',measAbs);
+  drawRTA(liveLevels,rel);
+  measuring=false;
+  $('measBtn').disabled=false;
+  status('측정 완료 · '+(curPos==='L'?'좌석':curPos==='R'?'우석':'센터')+' 저장됨 — 다른 좌석도 측정하세요');
+  toast('✓ 측정 저장: '+(curPos==='L'?'L':curPos==='R'?'R':'센터'));
+  updateSavedLabels();
+  renderResults();
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+/* ============================================================
+   RENDER — RTA canvas (VFD segmented bars)
+   ============================================================ */
+const cv=$('rta'), cx=cv.getContext('2d');
+const RANGE=24; // dB shown above/below mean
+function drawRTA(levels,rel){
+  const W=cv.clientWidth, H=230, dpr=window.devicePixelRatio||1;
+  if(cv.width!==W*dpr||cv.height!==H*dpr){ cv.width=W*dpr; cv.height=H*dpr; }
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,W,H);
+  const pad={l:30,r:8,t:14,b:20};
+  const n=15;
+  const bw=(W-pad.l-pad.r)/n;
+  const bh=H-pad.t-pad.b;
+  const mid=pad.t+bh/2;
+  const y0=pad.t+bh; // 0 line (baseline)
+  // grid
+  cx.strokeStyle='#141b23'; cx.lineWidth=1;
+  for(let d=-RANGE;d<=RANGE;d+=6){
+    const y=mid-d*(bh/2/RANGE);
+    cx.beginPath(); cx.moveTo(pad.l,y); cx.lineTo(W-pad.r,y); cx.stroke();
+  }
+  cx.strokeStyle='#2a3542';
+  cx.beginPath(); cx.moveTo(pad.l,mid); cx.lineTo(W-pad.r,mid); cx.stroke();
+  // scale labels
+  cx.fillStyle='#3d4a58'; cx.font='9px ui-monospace,monospace'; cx.textAlign='right';
+  for(let d=12;d<=RANGE;d+=12){
+    cx.fillText('+'+d,pad.l-4,mid-d*(bh/2/RANGE)+3);
+    cx.fillText('-'+d,pad.l-4,mid+d*(bh/2/RANGE)+3);
+  }
+  if(!levels){ // idle grid
+    cx.textAlign='center';
+    for(let i=0;i<n;i++) cx.fillText(fLabel(bands[i]),pad.l+bw*i+bw/2,H-6);
+    return;
+  }
+  // normalize by mean
+  const mean=levels.reduce((a,b)=>a+b,0)/15;
+  const segH=4, gap=2;
+  for(let i=0;i<n;i++){
+    const dev=clamp(levels[i]-mean-(optTilt*Math.log2(bands[i]/1000)),-RANGE,RANGE);
+    const x=pad.l+bw*i+bw*0.16, w=bw*0.68;
+    const barH=Math.abs(dev)*(bh/2/RANGE);
+    const color = dev>3 ? getComputedStyle(document.documentElement).getPropertyValue('--red')
+             : dev<-3 ? '#6f9fe8' : getComputedStyle(document.documentElement).getPropertyValue('--amber');
+    // draw LED segments bottom→top
+    for(let sy=pad.t; sy+segH<=H-pad.b+1; sy+=segH+gap){
+      const sc=sy+segH/2;
+      const segDb=(mid-sc)/(bh/2/RANGE);          // dB value of this segment
+      const inside = segDb>=0 ? segDb<=dev : segDb>=dev;
+      if(inside){
+        cx.fillStyle=color;
+        cx.globalAlpha=clamp(0.45+0.55*Math.abs(segDb)/RANGE,0.45,1);
+        cx.fillRect(x,sy,w,segH);
+        cx.globalAlpha=1;
+      } else {
+        cx.fillStyle='#10161d';
+        cx.fillRect(x,sy,w,segH);
+      }
+    }
+    // freq label
+    cx.fillStyle= (rel && Math.abs(rel[i])>3) ? '#e86060':'#55606d';
+    cx.font='9px ui-monospace,monospace'; cx.textAlign='center';
+    cx.fillText(fLabel(bands[i]),pad.l+bw*i+bw/2,H-6);
+  }
+}
+
+/* live mic meter loop (no measurement, just bars) */
+function liveLoop(){
+  if(micOn && !measuring && ac && analyser){
+    liveLevels=bandLevels();
+    drawRTA(liveLevels,null);
+    const mean=liveLevels.reduce((a,b)=>a+b,0)/15;
+    $('rtaMeta').textContent='LIVE · 평균 '+mean.toFixed(0)+' dB';
+  }
+  rafLive=requestAnimationFrame(liveLoop);
+}
+
+/* ============================================================
+   RESULTS
+   ============================================================ */
+function avgOfSaved(){
+  const keys=Object.keys(meas).filter(k=>meas[k]&&meas[k].length===15);
+  if(!keys.length) return null;
+  const out=new Array(15).fill(0);
+  for(const k of keys) for(let i=0;i<15;i++) out[i]+=meas[k][i]/keys.length;
+  return {avg:out, positions:keys};
+}
+function renderResults(){
+  const a=avgOfSaved();
+  const body=$('resultBody');
+  if(!a){ body.innerHTML='<div class="status">아직 측정 데이터가 없습니다.<br>측정 탭에서 좌석·우석·센터를 측정해 저장하세요.</div>';
+    $('cmpBody').innerHTML=''; $('resultMeta').textContent='데이터 없음'; return; }
+  $('resultMeta').textContent=a.positions.map(p=>p==='L'?'L':p==='R'?'R':'센터').join('+')+' 평균 · n='+a.positions.length;
+  let html='<table><tr><th>밴드</th><th>주파수</th><th>측정차</th><th>제안 게인</th></tr>';
+  for(let i=0;i<15;i++){
+    const dev=a.avg[i];
+    const gain=clamp(round05(-dev),-12,12);
+    const cls=dev>3?'dev-pos':dev<-3?'dev-neg':'';
+    html+='<tr'+(Math.abs(dev)<=1.5?' class="best"':'')+'>'+
+      '<td>B'+(i+1)+'</td><td>'+fLabel(bands[i])+' Hz</td>'+
+      '<td class="'+cls+'">'+(dev>0?'+':'')+dev.toFixed(1)+' dB</td>'+
+      '<td class="gain">'+(gain>0?'+':'')+gain.toFixed(1)+' dB</td></tr>';
+  }
+  html+='</table>';
+  html+='<p style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:10px">'+
+    '제안 게인 = −(측정차), ±12 dB 클램프, 0.5 dB 단위. ±1.5 dB 이내 밴드는 초록 배경(변경 불필요).</p>';
+  body.innerHTML=html;
+  // L/R compare
+  if(meas.L&&meas.R){
+    let c='';
+    for(let i=0;i<15;i++){
+      const l=meas.L[i], r=meas.R[i];
+      const d=l-r;                       // + means left louder
+      const half=Math.min(Math.abs(d)/2*9,45); // px half-span 9dB
+      const lw=Math.abs(d)>0?half:0;
+      c+='<div class="cmprow"><span class="f">'+fLabel(bands[i])+'</span><div class="track">'+
+        (d>=0
+          ? '<div class="l" style="left:50%;width:0"></div><div class="r" style="left:auto;right:50%;width:'+lw+'px"></div>'
+          : '<div class="l" style="left:50%;width:'+lw+'px"></div><div class="r" style="width:0"></div>')+
+        '</div><span class="d" style="color:'+ (Math.abs(d)>2?'var(--red)':'var(--text-dim)') +'">'+(d>0?'L+':'R+')+Math.abs(d).toFixed(1)+'</span></div>';
+    }
+    $('cmpBody').innerHTML=c;
+  } else {
+    $('cmpBody').innerHTML='<div class="status">좌·우 좌석을 모두 측정하면 밸런스 비교가 표시됩니다.</div>';
+  }
+}
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+function exportJSON(){
+  const a=avgOfSaved();
+  const out={
+    app:'PZ-Tune', date:new Date().toISOString().slice(0,19).replace('T',' '),
+    bands_hz:bands.slice(), target_tilt_db_per_oct:optTilt,
+    suggestion_db:a? a.avg.map((dev,i)=>({band:i+1, hz:bands[i], deviation:Math.round(dev*10)/10, eq_gain:clamp(round05(-dev),-12,12)})) : []
+  };
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const aEl=document.createElement('a');
+  aEl.href=url; aEl.download='pztune-'+Date.now()+'.json'; aEl.click();
+  URL.revokeObjectURL(url);
+  toast('JSON 내보내기 완료');
+}
+function copyTable(){
+  const a=avgOfSaved();
+  if(!a){ toast('측정 데이터가 없습니다'); return; }
+  let txt='[PZ-Tune 측정 결과 '+new Date().toLocaleDateString('ko-KR')+']\n밴드\t주파수\t측정차(dB)\t설정 게인(dB)\n';
+  a.avg.forEach((dev,i)=>{
+    txt+=(i+1)+'\t'+bands[i]+'Hz\t'+dev.toFixed(1)+'\t'+clamp(round05(-dev),-12,12).toFixed(1)+'\n';
+  });
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('표 복사 완료 — PUZU 앱에 붙여넣기'));
+  } else {
+    // fallback: share
+    if(navigator.share) navigator.share({text:txt});
+    else toast('복사 미지원 — JSON으로 저장하세요');
+  }
+}
+function loadDemo(){
+  // synthetic car curve: mid dip, treble rolloff, boom at 63
+  const demo=[1.5,4.0,2.5,0.5,-1.0,-2.5,-3.0,-2.0,-1.0,0.5,2.0,-3.5,-7.0,-10.5,-13.0];
+  meas.L=demo.map(x=>round05(x+ (Math.random()-.5)));
+  meas.R=demo.map(x=>round05(x+ (Math.random()-.5)));
+  meas.C=demo.map(x=>round05(x+ (Math.random()-.5)*1.5));
+  save('pzt_meas',meas);
+  renderResults(); updateSavedLabels();
+  toast('데모 데이터 로드됨 — 결과 탭 확인');
+  switchTab('result');
+}
+
+/* ============================================================
+   BAND EDITOR
+   ============================================================ */
+function renderBands(){
+  const box=$('bandList');
+  box.innerHTML=bands.map((f,i)=>
+    '<div class="bandrow"><span class="n">B'+(i+1)+'</span>'+
+    '<input type="range" min="20" max="20000" step="1" value="'+f+'" data-bi="'+i+'" class="freqRange">'+
+    '<input type="number" min="20" max="20000" step="0.1" value="'+f+'" data-bi="'+i+'" class="freqNum">'+
+    '<span class="hz">Hz</span></div>').join('');
+  box.querySelectorAll('.freqRange').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const i=+e.target.dataset.bi; bands[i]=+e.target.value;
+      box.querySelectorAll('.freqNum')[i].value=bands[i];
+      save('pzt_bands',bands);
+    });
+  });
+  box.querySelectorAll('.freqNum').forEach(el=>{
+    el.addEventListener('change',e=>{
+      const i=+e.target.dataset.bi; let v=+e.target.value;
+      if(!v||v<20) v=20; if(v>20000) v=20000;
+      bands[i]=v; e.target.value=v;
+      box.querySelectorAll('.freqRange')[i].value=v;
+      save('pzt_bands',bands);
+    });
+  });
+}
+
+/* ============================================================
+   UI wiring
+   ============================================================ */
+function switchTab(name){
+  document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+  $('tab-'+name).classList.remove('hidden');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.dataset.tab===name));
+  if(name==='result') renderResults();
+  if(name==='bands') renderBands();
+}
+document.querySelectorAll('nav button').forEach(b=>
+  b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+$('noiseBtn').addEventListener('click',()=>{ noiseOn?stopNoise():startNoise(); });
+$('vol').addEventListener('input',()=>{ setNoiseGain(); save('pzt_vol',$('vol').value); });
+$('vol').value=load('pzt_vol',35);
+$('vol').dispatchEvent(new Event('input'));
+
+$('measBtn').addEventListener('click',measure);
+
+document.querySelectorAll('#posTabs button').forEach(b=>
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#posTabs button').forEach(x=>x.classList.remove('act'));
+    b.classList.add('act');
+    curPos=b.dataset.pos;
+  }));
+function updateSavedLabels(){
+  ['L','R','C'].forEach(p=>{
+    $('saved'+p).textContent = meas[p]?'✓ 저장됨':'미측정';
+    const btn=document.querySelector('#posTabs button[data-pos="'+p+'"]');
+    btn.classList.toggle('saved',!!meas[p]);
+  });
+}
+$('resetPosBtn').addEventListener('click',()=>{
+  delete meas[curPos]; delete measAbs[curPos];
+  save('pzt_meas',meas); save('pzt_abs',measAbs);
+  updateSavedLabels(); renderResults();
+  toast('삭제됨: '+(curPos==='L'?'좌석L':curPos==='R'?'좌석R':'센터'));
+});
+$('resetAllBtn').addEventListener('click',()=>{
+  meas={}; measAbs={};
+  save('pzt_meas',meas); save('pzt_abs',measAbs);
+  updateSavedLabels(); renderResults(); drawRTA(null,null);
+  status('모두 지웠습니다 — 새로 측정하세요');
+});
+$('exportJson').addEventListener('click',exportJSON);
+$('copyTable').addEventListener('click',copyTable);
+$('loadDemo').addEventListener('click',loadDemo);
+$('preset60').addEventListener('click',()=>{ bands=PRESET_60.slice(); save('pzt_bands',bands); renderBands(); toast('60Hz 하방 그리드 적용'); });
+$('presetPz').addEventListener('click',()=>{ bands=PRESET_PZ.slice(); save('pzt_bands',bands); renderBands(); toast('PUZU C7 기본 그리드 적용'); });
+$('presetStd').addEventListener('click',()=>{ bands=PRESET_STD.slice(); save('pzt_bands',bands); renderBands(); toast('1/3옥타브 프리셋 적용'); });
+
+$('optDur').addEventListener('input',e=>{ optDur=+e.target.value; $('optDurVal').textContent=optDur; save('pzt_dur',optDur); });
+$('optDur').value=optDur; $('optDurVal').textContent=optDur;
+$('optTilt').addEventListener('input',e=>{ optTilt=+e.target.value; $('optTiltVal').textContent=optTilt; save('pzt_tilt',optTilt); drawRTA(liveLevels,null); });
+$('optTilt').value=optTilt; $('optTiltVal').textContent=optTilt;
+
+/* mic chip = toggle */
+$('micChip').addEventListener('click',async()=>{
+  if(micOn){ stopMic(); status('마이크 끔'); drawRTA(null,null); }
+  else { await startMic(); }
+});
+
+/* PWA install */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const b=document.createElement('button');
+  b.className='btn ghost wide'; b.textContent='📲 홈 화면에 설치';
+  b.addEventListener('click',async()=>{
+    if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt=null; b.remove(); }
+  });
+  $('tab-guide').firstElementChild.appendChild(b);
+});
+
+/* service worker (works only when served from GitHub Pages) */
+if('serviceWorker' in navigator && location.protocol==='https:' && !location.hostname.endsWith('genspark.net')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+/* ---------- boot ---------- */
+updateSavedLabels();
+renderBands();
+renderResults();
+drawRTA(null,null);
+liveLoop();
+</script>
+</body>
+</html>

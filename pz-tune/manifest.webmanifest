@@ -1,0 +1,21 @@
+{
+  "name": "PZ-Tune — 차량 DSP EQ 측정기",
+  "short_name": "PZ-Tune",
+  "description": "핑크노이즈와 폰 마이크로 차 안 소리를 15밴드로 재고, 차량 DSP EQ 게인을 계산하는 측정기",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/PICKEL/pz-tune/",
+  "scope": "/PICKEL/pz-tune/",
+  "id": "/PICKEL/pz-tune/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0a0d10",
+  "theme_color": "#0a0d10",
+  "categories": ["utilities", "music"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
